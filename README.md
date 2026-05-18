@@ -57,7 +57,9 @@
 | 行情数据 | [TickFlow](https://tickflow.org/auth/register?ref=WDSGSPS5XC)、AkShare、Tushare、Pytdx、Baostock、YFinance、Longbridge |
 | 新闻搜索 | [Anspire](https://open.anspire.cn/?share_code=QFBC0FYC)、[SerpAPI](https://serpapi.com/baidu-search-api?utm_source=github_daily_stock_analysis)、[Tavily](https://tavily.com/)、[Bocha](https://open.bocha.cn/)、[Brave](https://brave.com/search/api/)、[MiniMax](https://platform.minimaxi.com/)、SearXNG |
 | 社交舆情 | [Stock Sentiment API](https://api.adanos.org/docs)（Reddit / X / Polymarket，仅美股，可选） |
+| 美股深度分析 | PE/PS/PB/PEG/ROE/FCF 估值分析、美联储政策/国债收益率/VIX 宏观环境评估 |
 
+> 美股估值与宏观分析由独立模块 `us_fundamental.py` 和 `us_macro.py` 提供，可通过 `US_STOCK_LIST` 和 `US_MARKET_ENABLED` 配置启用。
 > 完整规则见 [数据源配置](docs/full-guide.md#数据源配置)。
 
 ## 🚀 快速开始
