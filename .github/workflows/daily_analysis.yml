@@ -391,6 +391,7 @@ jobs:
           echo "⏰ 时间: $(TZ='Asia/Shanghai' date '+%Y-%m-%d %H:%M:%S')"
           echo "🎯 运行模式: $MODE"
           echo "📊 自选股: $STOCK_LIST"
+          echo "🇺🇸 美股: $([ "$US_MARKET_ENABLED" = "true" ] && echo \"$US_STOCK_LIST\" || echo \"已禁用\")"
           echo "📝 报告类型: $REPORT_TYPE"
           echo ""
           echo "=========================================="

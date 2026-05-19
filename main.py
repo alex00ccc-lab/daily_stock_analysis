@@ -491,10 +491,10 @@ def run_full_analysis(
             logger.info("今日休市股票已跳过: %s", skipped)
         stock_codes = filtered_codes
 
-        # 检测是否包含 A股和美股，决定是否分离推送
+        # 检测是否包含美股，决定是否由 main 层单独推送（🇺🇸 美股决策仪表盘）
         _has_cn = any(not is_us_stock_code(c) for c in stock_codes)
         _has_us = any(is_us_stock_code(c) for c in stock_codes)
-        _separate_market_push = _has_cn and _has_us
+        _separate_market_push = _has_us
 
         # 命令行参数 --single-notify 覆盖配置（#55）
         if getattr(args, 'single_notify', False):
