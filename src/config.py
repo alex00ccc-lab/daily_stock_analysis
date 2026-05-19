@@ -522,6 +522,8 @@ class Config:
     
     # === 自选股配置 ===
     stock_list: List[str] = field(default_factory=list)
+    us_stock_list: List[str] = field(default_factory=list)  # 美股自选股列表
+    us_market_enabled: bool = False  # 美股市场分析开关
 
     # === 飞书云文档配置 ===
     feishu_app_id: Optional[str] = None
@@ -1017,7 +1019,22 @@ class Config:
         # 如果没有配置，使用默认的示例股票
         if not stock_list:
             stock_list = ['600519', '000001', '300750']
-        
+
+        # 解析美股自选股列表
+        us_stock_list_str = cls._resolve_env_value(
+            'US_STOCK_LIST',
+            default='',
+            prefer_env_file=True,
+        )
+        us_stock_list = [
+            (c or "").strip().upper()
+            for c in us_stock_list_str.split(',')
+            if (c or "").strip()
+        ]
+        us_market_enabled = parse_env_bool(
+            os.getenv('US_MARKET_ENABLED', 'false'), default=False
+        )
+
         # === LiteLLM multi-key parsing ===
         # GEMINI_API_KEYS (comma-separated) > GEMINI_API_KEY (single)
         _gemini_keys_raw = os.getenv('GEMINI_API_KEYS', '')
@@ -1286,6 +1303,8 @@ class Config:
 
         return cls(
             stock_list=stock_list,
+            us_stock_list=us_stock_list,
+            us_market_enabled=us_market_enabled,
             feishu_app_id=os.getenv('FEISHU_APP_ID'),
             feishu_app_secret=os.getenv('FEISHU_APP_SECRET'),
             feishu_folder_token=os.getenv('FEISHU_FOLDER_TOKEN'),

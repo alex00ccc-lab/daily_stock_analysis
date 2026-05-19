@@ -1162,17 +1162,6 @@ class NotificationService(
                             f"- {labels['risk_control_label']}: {position.get('risk_control', 'N/A')}",
                             "",
                         ])
-                    # 检查清单
-                    checklist = battle.get('action_checklist', []) if battle else []
-                    if checklist:
-                        report_lines.extend([
-                            f"**✅ {labels['checklist_heading']}**",
-                            "",
-                        ])
-                        for item in checklist:
-                            report_lines.append(f"- {item}")
-                        report_lines.append("")
-                
                 # 如果没有 dashboard，显示传统格式
                 if not dashboard:
                     # 操作理由
@@ -1362,17 +1351,6 @@ class NotificationService(
                     if has_pos:
                         lines.append(f"💼 {labels['has_position_label']}: {has_pos[:50]}")
                     lines.append("")
-                
-                # 检查清单简化版
-                checklist = battle.get('action_checklist', []) if battle else []
-                if checklist:
-                    # 只显示不通过的项目
-                    failed_checks = [str(c) for c in checklist if str(c).startswith('❌') or str(c).startswith('⚠️')]
-                    if failed_checks:
-                        lines.append(f"**{labels['failed_checks_heading']}**:")
-                        for check in failed_checks[:3]:
-                            lines.append(f"   {check[:40]}")
-                        lines.append("")
                 
                 lines.append("---")
                 lines.append("")

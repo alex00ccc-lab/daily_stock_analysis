@@ -39,7 +39,6 @@ _CHINESE_SECTION_PATTERNS = {
     "index_commentary": r"###\s*二、(?:指数结构|指数点评|主要指数)",
     "sector_highlights": r"###\s*三、(?:板块主线|热点解读|板块表现)",
     "funds_sentiment": r"###\s*四、(?:资金与情绪|资金动向)",
-    "news_catalysts": r"###\s*五、(?:消息催化|后市展望)",
 }
 
 
@@ -519,13 +518,6 @@ Focus on index trend, liquidity, and sector rotation to shape the next-session t
                 sector_block,
             )
 
-        if news_block and "news_catalysts" in patterns:
-            review = self._insert_after_section(
-                review,
-                patterns["news_catalysts"],
-                news_block,
-            )
-
         return review
 
     @staticmethod
@@ -993,14 +985,8 @@ Lagging: {bottom_sectors_text if bottom_sectors_text else "N/A"}"""
 ### 4. Sector Highlights
 (Analyze the drivers behind the leading and lagging sectors or themes.)
 
-### 5. Outlook
-(Provide the near-term outlook based on price action and news.)
-
-### 6. Risk Alerts
+### 5. Risk Alerts
 (List the main risks to monitor.)
-
-### 7. Strategy Plan
-(Provide an offensive/balanced/defensive stance, a position-sizing guideline, one invalidation trigger, and end with “For reference only, not investment advice.”)
 
 ---
 
@@ -1059,14 +1045,8 @@ Output the report content directly, no extra commentary.
 ### 四、资金与情绪
 （解读成交额、涨跌停结构、市场宽度和风险偏好）
 
-### 五、消息催化
-（结合近三日新闻，提炼真正影响明日交易的催化或扰动）
-
-### 六、明日交易计划
-（给出进攻/均衡/防守结论、仓位区间、关注方向、回避方向和一个触发失效条件）
-
-### 七、风险提示
-（列出需要关注的风险点；最后补充“建议仅供参考，不构成投资建议”。）
+### 五、风险提示
+（列出需要关注的风险点；最后补充”建议仅供参考，不构成投资建议”。）
 
 ---
 
@@ -1173,16 +1153,7 @@ Market conditions can change quickly. The data above is for reference only and d
 ### 四、资金与情绪
 - 结合成交额和涨跌家数看，当前更适合等待确认，避免仅凭单一热点追高。
 
-### 五、消息催化
-- 暂无可用新闻时，应降低对题材持续性的确定性判断。
-
-### 六、明日交易计划
-- **结论**：均衡观察。
-- **仓位**：控制在中性区间，等待指数与主线共振。
-- **关注方向**：{top_text or "强于指数的主线板块"}。
-- **回避方向**：{bottom_text or "连续走弱且缺少修复信号的方向"}。
-
-### 七、风险提示
+### 五、风险提示
 - 市场有风险，投资需谨慎。以上数据仅供参考，不构成投资建议。
 
 ---

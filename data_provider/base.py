@@ -2165,7 +2165,9 @@ class DataFetcherManager:
         stock_code = normalize_stock_code(stock_code)
         market = _market_tag(stock_code)
         is_etf = _is_etf_code(stock_code)
-        if market in {"us", "hk"}:
+        if market == "us":
+            return self._get_us_fundamental_context(stock_code, budget_seconds)
+        if market == "hk":
             return self._build_market_not_supported(
                 market=market,
                 reason="market not supported",
@@ -2446,6 +2448,174 @@ class DataFetcherManager:
                     "context": result_ctx,
                 }
             self._prune_fundamental_cache(cache_ttl, cache_max_entries)
+        return result_ctx
+
+    def _get_us_fundamental_context(
+        self,
+        stock_code: str,
+        budget_seconds: Optional[float] = None,
+    ) -> Dict[str, Any]:
+        """Get fundamental context for US stocks using yfinance-based USFundamentalFetcher."""
+        from src.config import get_config
+
+        config = get_config()
+        stage_timeout = float(
+            budget_seconds if budget_seconds is not None else config.fundamental_stage_timeout_seconds
+        )
+        stage_timeout = max(0.0, stage_timeout)
+
+        cache_ttl = int(config.fundamental_cache_ttl_seconds)
+        cache_max_entries = max(0, int(getattr(config, "fundamental_cache_max_entries", 256)))
+        cache_key = self._get_fundamental_cache_key(stock_code, stage_timeout)
+        if cache_ttl > 0:
+            self._prune_fundamental_cache(cache_ttl, cache_max_entries)
+            with self._fundamental_cache_lock:
+                cache_item = self._fundamental_cache.get(cache_key)
+                if cache_item:
+                    age = time.time() - float(cache_item.get("ts", 0))
+                    if age <= cache_ttl:
+                        return cache_item.get("context", {})
+
+        start_ts = time.time()
+        result_ctx: Dict[str, Any] = {
+            "market": "us",
+            "valuation": {},
+            "growth": {},
+            "earnings": {},
+            "institution": {},
+            "capital_flow": {},
+            "dragon_tiger": {},
+            "boards": {},
+            "coverage": {},
+            "source_chain": [],
+            "errors": [],
+        }
+
+        # Fetch US fundamental data via USFundamentalFetcher
+        us_data = None
+        fetch_err: Optional[str] = None
+        try:
+            from us_fundamental import USFundamentalFetcher
+            fetcher = USFundamentalFetcher()
+            us_data = fetcher.fetch(stock_code)
+        except ImportError as e:
+            fetch_err = f"USFundamentalFetcher unavailable: {e}"
+            logger.warning("US fundamental fetch for %s: %s", stock_code, fetch_err)
+        except Exception as e:
+            fetch_err = str(e)
+            logger.warning("US fundamental fetch failed for %s: %s", stock_code, e)
+
+        if us_data is not None and us_data.fetch_success:
+            provider_chain = [{"provider": "us_fundamental", "result": "ok", "duration_ms": 0}]
+
+            # Valuation block
+            valuation_payload = {
+                "pe_ratio": us_data.pe_trailing,
+                "pb_ratio": us_data.pb_ratio,
+                "ps_ratio": us_data.ps_ratio,
+                "total_mv": us_data.market_cap,
+                "pe_forward": us_data.pe_forward,
+                "peg_ratio": us_data.peg_ratio,
+            }
+            result_ctx["valuation"] = self._build_fundamental_block(
+                "ok" if us_data.pe_trailing is not None else "partial",
+                valuation_payload,
+                provider_chain,
+                [],
+            )
+
+            # Growth block
+            growth_payload = {
+                "revenue_growth_pct": us_data.revenue_growth,
+                "earnings_growth_pct": us_data.earnings_growth,
+                "earnings_quarterly_growth_pct": us_data.earnings_quarterly_growth,
+            }
+            result_ctx["growth"] = self._build_fundamental_block(
+                "ok" if us_data.revenue_growth is not None else "partial",
+                growth_payload,
+                provider_chain,
+                [],
+            )
+
+            # Earnings block
+            earnings_payload = {
+                "eps_trailing": us_data.eps_trailing,
+                "eps_forward": us_data.eps_forward,
+                "dividend_yield_pct": us_data.dividend_yield,
+                "return_on_equity_pct": us_data.return_on_equity,
+                "profit_margin_pct": us_data.profit_margin,
+                "revenue_per_share": us_data.revenue_per_share,
+            }
+            result_ctx["earnings"] = self._build_fundamental_block(
+                "ok" if us_data.eps_trailing is not None else "partial",
+                earnings_payload,
+                provider_chain,
+                [],
+            )
+
+            # Institution block (US-specific: beta, short ratio, analyst data)
+            institution_payload = {
+                "beta": us_data.beta,
+                "short_ratio": us_data.short_ratio,
+                "target_mean_price": us_data.target_mean_price,
+                "recommendation": us_data.recommendation,
+                "debt_to_equity": us_data.debt_to_equity,
+                "enterprise_value": us_data.enterprise_value,
+                "free_cashflow": us_data.free_cashflow,
+                "fcf_yield_pct": us_data.fcf_yield,
+            }
+            result_ctx["institution"] = self._build_fundamental_block(
+                "ok" if us_data.beta is not None else "partial",
+                institution_payload,
+                provider_chain,
+                [],
+            )
+        else:
+            err_msg = fetch_err or (us_data.error_message if us_data else "US fundamental fetch failed")
+            for block in ("valuation", "growth", "earnings", "institution"):
+                result_ctx[block] = self._build_fundamental_block(
+                    "failed",
+                    {},
+                    [{"provider": "us_fundamental", "result": "failed", "duration_ms": 0}],
+                    [err_msg],
+                )
+
+        # A-share-specific blocks → not_supported for US stocks
+        for block in ("capital_flow", "dragon_tiger", "boards"):
+            result_ctx[block] = self._build_fundamental_block(
+                "not_supported",
+                {},
+                [{"provider": "fundamental_pipeline", "result": "not_supported", "duration_ms": 0}],
+                ["us market not supported for this block"],
+            )
+
+        # Compute overall status
+        block_statuses = {
+            b: result_ctx[b].get("status", "not_supported")
+            for b in ("valuation", "growth", "earnings", "institution", "capital_flow", "dragon_tiger", "boards")
+        }
+        result_ctx["coverage"] = block_statuses
+
+        for block in block_statuses:
+            result_ctx["errors"].extend(result_ctx[block].get("errors", []))
+            result_ctx["source_chain"].extend(result_ctx[block].get("source_chain", []))
+
+        if all(v == "not_supported" for v in block_statuses.values()):
+            result_ctx["status"] = "not_supported"
+        elif "failed" in block_statuses.values():
+            result_ctx["status"] = "partial"
+        elif "partial" in block_statuses.values():
+            result_ctx["status"] = "partial"
+        else:
+            result_ctx["status"] = "ok"
+
+        result_ctx["elapsed_ms"] = int((time.time() - start_ts) * 1000)
+
+        if cache_ttl > 0 and self._should_cache_fundamental_context(result_ctx):
+            with self._fundamental_cache_lock:
+                self._fundamental_cache[cache_key] = {"ts": time.time(), "context": result_ctx}
+            self._prune_fundamental_cache(cache_ttl, cache_max_entries)
+
         return result_ctx
 
     def get_capital_flow_context(self, stock_code: str, budget_seconds: Optional[float] = None) -> Dict[str, Any]:

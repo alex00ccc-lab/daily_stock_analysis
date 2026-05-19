@@ -469,6 +469,15 @@ def run_full_analysis(
 
         # Issue #373: Trading day filter (per-stock, per-market)
         effective_codes = stock_codes if stock_codes is not None else config.stock_list
+
+        # 合并美股列表（当 US_MARKET_ENABLED=true 时）
+        from data_provider.us_index_mapping import is_us_stock_code
+        if config.us_market_enabled and config.us_stock_list:
+            extra_us = [c for c in config.us_stock_list if c not in effective_codes]
+            if extra_us:
+                logger.info("已合并美股列表: %s", extra_us)
+                effective_codes = list(effective_codes) + extra_us
+
         filtered_codes, effective_region, should_skip = _compute_trading_day_filter(
             config, args, effective_codes
         )
@@ -481,6 +490,11 @@ def run_full_analysis(
             skipped = set(effective_codes) - set(filtered_codes)
             logger.info("今日休市股票已跳过: %s", skipped)
         stock_codes = filtered_codes
+
+        # 检测是否包含 A股和美股，决定是否分离推送
+        _has_cn = any(not is_us_stock_code(c) for c in stock_codes)
+        _has_us = any(is_us_stock_code(c) for c in stock_codes)
+        _separate_market_push = _has_cn and _has_us
 
         # 命令行参数 --single-notify 覆盖配置（#55）
         if getattr(args, 'single_notify', False):
@@ -507,11 +521,16 @@ def run_full_analysis(
             save_context_snapshot=save_context_snapshot
         )
 
+        # 分离推送时禁止 pipeline 内部发送通知，由 main 层分别推送
+        _pipeline_send_notification = not args.no_notify
+        if _separate_market_push:
+            _pipeline_send_notification = False
+
         # 1. 运行个股分析
         results = pipeline.run(
             stock_codes=stock_codes,
             dry_run=args.dry_run,
-            send_notification=not args.no_notify,
+            send_notification=_pipeline_send_notification,
             merge_notification=merge_notification
         )
 
@@ -549,22 +568,63 @@ def run_full_analysis(
 
         # Issue #190: 合并推送（个股+大盘复盘）
         if merge_notification and (results or market_report) and not args.no_notify:
-            parts = []
-            if market_report:
-                parts.append(f"# 📈 大盘复盘\n\n{market_report}")
-            if results:
-                dashboard_content = pipeline.notifier.generate_aggregate_report(
-                    results,
-                    getattr(config, 'report_type', 'simple'),
-                )
-                parts.append(f"# 🚀 个股决策仪表盘\n\n{dashboard_content}")
-            if parts:
-                combined_content = "\n\n---\n\n".join(parts)
-                if pipeline.notifier.is_available():
-                    if pipeline.notifier.send(combined_content, email_send_to_all=True, route_type="report"):
-                        logger.info("已合并推送（个股+大盘复盘）")
-                    else:
-                        logger.warning("合并推送失败")
+            report_type = getattr(config, 'report_type', 'simple')
+            if _separate_market_push:
+                # 分离 A股/美股 合并推送
+                cn_results = [r for r in results if not is_us_stock_code(r.code)]
+                us_results = [r for r in results if is_us_stock_code(r.code)]
+                if cn_results:
+                    parts = []
+                    if market_report:
+                        parts.append(f"# 📈 大盘复盘\n\n{market_report}")
+                    dashboard_content = pipeline.notifier.generate_aggregate_report(cn_results, report_type)
+                    parts.append(f"# 🇨🇳 A股决策仪表盘\n\n{dashboard_content}")
+                    if parts:
+                        combined = "\n\n---\n\n".join(parts)
+                        if pipeline.notifier.is_available():
+                            pipeline.notifier.send(combined, email_send_to_all=True, route_type="report")
+                            logger.info("已合并推送（A股+大盘复盘）")
+                if us_results:
+                    us_content = pipeline.notifier.generate_aggregate_report(us_results, report_type)
+                    us_full = f"# 🇺🇸 美股决策仪表盘\n\n{us_content}"
+                    if pipeline.notifier.is_available():
+                        pipeline.notifier.send(us_full, email_send_to_all=True, route_type="report")
+                        logger.info("已推送美股决策仪表盘")
+            else:
+                parts = []
+                if market_report:
+                    parts.append(f"# 📈 大盘复盘\n\n{market_report}")
+                if results:
+                    dashboard_content = pipeline.notifier.generate_aggregate_report(
+                        results,
+                        report_type,
+                    )
+                    parts.append(f"# 🚀 个股决策仪表盘\n\n{dashboard_content}")
+                if parts:
+                    combined_content = "\n\n---\n\n".join(parts)
+                    if pipeline.notifier.is_available():
+                        if pipeline.notifier.send(combined_content, email_send_to_all=True, route_type="report"):
+                            logger.info("已合并推送（个股+大盘复盘）")
+                        else:
+                            logger.warning("合并推送失败")
+
+        # A股/美股分离推送（当同时包含两类股票时）
+        if _separate_market_push and results and not args.no_notify:
+            cn_results = [r for r in results if not is_us_stock_code(r.code)]
+            us_results = [r for r in results if is_us_stock_code(r.code)]
+            report_type = getattr(config, 'report_type', 'simple')
+
+            if cn_results and pipeline.notifier.is_available():
+                cn_report = pipeline.notifier.generate_aggregate_report(cn_results, report_type)
+                cn_content = f"# 🇨🇳 A股决策仪表盘\n\n{cn_report}"
+                if pipeline.notifier.send(cn_content, route_type="report"):
+                    logger.info("已推送A股决策仪表盘 (%d只)", len(cn_results))
+
+            if us_results and pipeline.notifier.is_available():
+                us_report = pipeline.notifier.generate_aggregate_report(us_results, report_type)
+                us_content = f"# 🇺🇸 美股决策仪表盘\n\n{us_report}"
+                if pipeline.notifier.send(us_content, route_type="report"):
+                    logger.info("已推送美股决策仪表盘 (%d只)", len(us_results))
 
         # 输出摘要
         if results:

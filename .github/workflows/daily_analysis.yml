@@ -343,6 +343,8 @@ jobs:
           # 自选股配置
           # ==========================================
           STOCK_LIST: ${{ vars.STOCK_LIST || secrets.STOCK_LIST || '600519' }}
+          US_STOCK_LIST: ${{ vars.US_STOCK_LIST || secrets.US_STOCK_LIST || '' }}
+          US_MARKET_ENABLED: ${{ vars.US_MARKET_ENABLED || secrets.US_MARKET_ENABLED || 'false' }}
           MARKET_REVIEW_REGION: ${{ vars.MARKET_REVIEW_REGION || secrets.MARKET_REVIEW_REGION || 'cn' }}
           MARKET_REVIEW_COLOR_SCHEME: ${{ vars.MARKET_REVIEW_COLOR_SCHEME || secrets.MARKET_REVIEW_COLOR_SCHEME || 'green_up' }}
           
