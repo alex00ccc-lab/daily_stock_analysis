@@ -598,17 +598,6 @@ class StockAnalysisPipeline:
             # 移除 None 值以减少上下文大小
             enhanced['realtime'] = {k: v for k, v in enhanced['realtime'].items() if v is not None}
         
-        # 添加筹码分布
-        if chip_data:
-            current_price = getattr(realtime_quote, 'price', 0) if realtime_quote else 0
-            enhanced['chip'] = {
-                'profit_ratio': chip_data.profit_ratio,
-                'avg_cost': chip_data.avg_cost,
-                'concentration_90': chip_data.concentration_90,
-                'concentration_70': chip_data.concentration_70,
-                'chip_status': chip_data.get_chip_status(current_price or 0),
-            }
-        
         # 添加趋势分析结果
         if trend_result:
             enhanced['trend_analysis'] = {

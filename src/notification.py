@@ -1041,10 +1041,6 @@ class NotificationService(
                         report_lines.append(f"**✨ {labels['positive_catalysts_label']}**:")
                         for cat in catalysts:
                             report_lines.append(f"- {cat}")
-                    # 最新消息
-                    if intel.get('latest_news'):
-                        report_lines.append("")
-                        report_lines.append(f"**📢 {labels['latest_news_label']}**: {intel['latest_news']}")
                     report_lines.append("")
                 
                 # ========== 核心结论 ==========
@@ -1081,8 +1077,6 @@ class NotificationService(
                     trend_data = data_persp.get('trend_status', {})
                     price_data = data_persp.get('price_position', {})
                     vol_data = data_persp.get('volume_analysis', {})
-                    chip_data = data_persp.get('chip_structure', {})
-                    
                     report_lines.extend([
                         f"### 📊 {labels['data_perspective_heading']}",
                         "",
@@ -1121,14 +1115,6 @@ class NotificationService(
                             f"**{labels['volume_label']}**: {labels['volume_ratio_label']} {vol_data.get('volume_ratio', 'N/A')} ({vol_data.get('volume_status', '')}) | "
                             f"{labels['turnover_rate_label']} {vol_data.get('turnover_rate', 'N/A')}%",
                             f"💡 *{vol_data.get('volume_meaning', '')}*",
-                            "",
-                        ])
-                    # 筹码结构
-                    if chip_data:
-                        chip_health = localize_chip_health(chip_data.get('chip_health', 'N/A'), report_language)
-                        report_lines.extend([
-                            f"**{labels['chip_label']}**: {chip_data.get('profit_ratio', 'N/A')} | {chip_data.get('avg_cost', 'N/A')} | "
-                            f"{chip_data.get('concentration', 'N/A')} {chip_health}",
                             "",
                         ])
                 

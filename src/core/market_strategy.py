@@ -53,24 +53,14 @@ class MarketStrategyBlueprint:
 
 CN_BLUEPRINT = MarketStrategyBlueprint(
     region="cn",
-    title="A股市场三段式复盘策略",
-    positioning="聚焦指数趋势、资金博弈与板块轮动，形成次日交易计划。",
+    title="A股市场复盘策略",
+    positioning="聚焦板块轮动与主线逻辑，形成次日交易计划。",
     principles=[
-        "先看指数方向，再看量能结构，最后看板块持续性。",
+        "先看板块持续性，再看催化逻辑。",
         "结论必须映射到仓位、节奏与风险控制动作。",
         "判断使用当日数据与近3日新闻，不臆测未验证信息。",
     ],
     dimensions=[
-        StrategyDimension(
-            name="趋势结构",
-            objective="判断市场处于上升、震荡还是防守阶段。",
-            checkpoints=["上证/深证/创业板是否同向", "放量上涨或缩量下跌是否成立", "关键支撑阻力是否被突破"],
-        ),
-        StrategyDimension(
-            name="资金情绪",
-            objective="识别短线风险偏好与情绪温度。",
-            checkpoints=["涨跌家数与涨跌停结构", "成交额是否扩张", "高位股是否出现分歧"],
-        ),
         StrategyDimension(
             name="主线板块",
             objective="提炼可交易主线与规避方向。",

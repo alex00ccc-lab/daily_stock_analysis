@@ -471,6 +471,8 @@ def run_full_analysis(
         effective_codes = stock_codes if stock_codes is not None else config.stock_list
 
         # 合并美股列表（当 US_MARKET_ENABLED=true 时）
+        # 美股由 daily_analysis_us.yml 在 北京时间 09:00 (UTC 01:00) 独立处理
+        # 本工作流 (daily_analysis.yml) 仅在 US_MARKET_ENABLED=false 时运行
         from data_provider.us_index_mapping import is_us_stock_code
         if config.us_market_enabled and config.us_stock_list:
             extra_us = [c for c in config.us_stock_list if c not in effective_codes]

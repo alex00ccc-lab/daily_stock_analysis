@@ -30,15 +30,12 @@ logger = logging.getLogger(__name__)
 
 _ENGLISH_SECTION_PATTERNS = {
     "market_summary": r"###\s*(?:1\.\s*)?Market Summary",
-    "index_commentary": r"###\s*(?:2\.\s*)?(?:Index Commentary|Major Indices)",
-    "sector_highlights": r"###\s*(?:4\.\s*)?(?:Sector Highlights|Sector/Theme Highlights)",
+    "sector_highlights": r"###\s*(?:2\.\s*)?(?:Sector Highlights|Sector/Theme Highlights)",
 }
 
 _CHINESE_SECTION_PATTERNS = {
     "market_summary": r"###\s*一、(?:盘面总览|市场总结)",
-    "index_commentary": r"###\s*二、(?:指数结构|指数点评|主要指数)",
-    "sector_highlights": r"###\s*三、(?:板块主线|热点解读|板块表现)",
-    "funds_sentiment": r"###\s*四、(?:资金与情绪|资金动向)",
+    "sector_highlights": r"###\s*二、(?:板块主线|热点解读|板块表现)",
 }
 
 
@@ -488,9 +485,7 @@ Focus on index trend, liquidity, and sector rotation to shape the next-session t
         """Inject structured data tables into the corresponding LLM prose sections."""
         # Build data blocks
         stats_block = self._build_stats_block(overview)
-        indices_block = self._build_indices_block(overview)
         sector_block = self._build_sector_block(overview)
-        news_block = self._build_news_block(news or [])
         patterns = (
             _ENGLISH_SECTION_PATTERNS
             if self._get_review_language() == "en"
@@ -502,13 +497,6 @@ Focus on index trend, liquidity, and sector rotation to shape the next-session t
                 review,
                 patterns["market_summary"],
                 stats_block,
-            )
-
-        if indices_block:
-            review = self._insert_after_section(
-                review,
-                patterns["index_commentary"],
-                indices_block,
             )
 
         if sector_block:
@@ -974,19 +962,10 @@ Lagging: {bottom_sectors_text if bottom_sectors_text else "N/A"}"""
 ## {report_title}
 
 ### 1. Market Summary
-(2-3 sentences summarizing overall market tone, index moves, and liquidity.)
+(2-3 sentences summarizing overall market tone, index moves, and liquidity. Include index performance and risk observations here.)
 
-### 2. Index Commentary
-({self._get_index_hint()})
-
-### 3. Fund Flows
-(Interpret what turnover, participation, and flow signals imply.)
-
-### 4. Sector Highlights
+### 2. Sector Highlights
 (Analyze the drivers behind the leading and lagging sectors or themes.)
-
-### 5. Risk Alerts
-(List the main risks to monitor.)
 
 ---
 
@@ -994,14 +973,14 @@ Output the report content directly, no extra commentary.
 """
 
         # A 股场景使用中文提示语
-        return f"""你是一位专业的A/H/美股市场分析师，请根据以下数据生成一份结构化的{self._get_market_scope_name('zh')}大盘复盘报告。
+        return f”””你是一位专业的A/H/美股市场分析师，请根据以下数据生成一份结构化的{self._get_market_scope_name('zh')}大盘复盘报告。
 
 【重要】输出要求：
 - 必须输出纯 Markdown 文本格式
 - 禁止输出 JSON 格式
 - 禁止输出代码块
 - emoji 仅在标题处少量使用（每个标题最多1个）
-- 报告要像交易员盘后工作台：先给结论，再按数据表、主线、催化、计划展开
+- 报告要像交易员盘后工作台：先给结论，再按数据表、主线、催化展开
 - 不要重复列出已由系统注入的表格数据；正文负责解释表格背后的含义
 
 ---
@@ -1034,24 +1013,15 @@ Output the report content directly, no extra commentary.
 > 一句话给出今日市场状态、核心矛盾和明日优先观察方向。
 
 ### 一、盘面总览
-（2-3句话概括指数、涨跌家数、成交额和情绪温度，明确“强势/偏暖/震荡/偏弱”判断）
+（2-3句话概括指数、涨跌家数、成交额和情绪温度，明确”强势/偏暖/震荡/偏弱”判断。结合指数表现说明谁在护盘、谁在拖累，以及关键支撑/压力。）
 
-### 二、指数结构
-（{self._get_index_hint()}，说明谁在护盘、谁在拖累，以及关键支撑/压力）
-
-### 三、板块主线
-（分析领涨/领跌板块背后的逻辑、持续性和是否形成主线）
-
-### 四、资金与情绪
-（解读成交额、涨跌停结构、市场宽度和风险偏好）
-
-### 五、风险提示
-（列出需要关注的风险点；最后补充”建议仅供参考，不构成投资建议”。）
+### 二、板块主线
+（分析领涨/领跌板块背后的逻辑、持续性和是否形成主线。最后补充”建议仅供参考，不构成投资建议”。）
 
 ---
 
 请直接输出复盘报告内容，不要输出其他说明文字。
-"""
+“””
     
     def _generate_template_review(self, overview: MarketOverview, news: List) -> str:
         """使用模板生成复盘报告（无大模型时的备选方案）"""
@@ -1095,7 +1065,7 @@ Output the report content directly, no extra commentary.
             stats_section = ""
             if self.profile.has_market_stats:
                 stats_section = f"""
-### 3. Breadth & Liquidity
+### Breadth & Liquidity
 | Metric | Value |
 |--------|-------|
 | Advancers | {overview.up_count} |
@@ -1107,7 +1077,7 @@ Output the report content directly, no extra commentary.
             sector_section = ""
             if self.profile.has_sector_rankings and (top_text or bottom_text):
                 sector_section = f"""
-### 4. Sector Highlights
+### 2. Sector Highlights
 - **Leaders**: {top_text or "N/A"}
 - **Laggards**: {bottom_text or "N/A"}
 """
@@ -1118,12 +1088,9 @@ Output the report content directly, no extra commentary.
 ### 1. Market Summary
 Today's {self._get_market_scope_name(template_language)} showed **{market_mood}**.
 
-### 2. Major Indices
 {indices_text or "- No index data available"}
 {stats_section}
 {sector_section}
-### 5. Risk Alerts
-Market conditions can change quickly. The data above is for reference only and does not constitute investment advice.
 
 {self._get_strategy_markdown_block(template_language)}
 
@@ -1135,7 +1102,6 @@ Market conditions can change quickly. The data above is for reference only and d
         market_labels = {"cn": "A股", "us": "美股", "hk": "港股"}
         market_label = market_labels.get(self.region, "A股")
         dashboard_block = self._build_stats_block(overview)
-        indices_block = self._build_indices_block(overview)
         sector_block = self._build_sector_block(overview)
         return f"""## {overview.date} 大盘复盘
 
@@ -1144,17 +1110,8 @@ Market conditions can change quickly. The data above is for reference only and d
 ### 一、盘面总览
 {dashboard_block or "暂无市场宽度数据。"}
 
-### 二、指数结构
-{indices_block or indices_text or "暂无指数数据。"}
-
-### 三、板块主线
+### 二、板块主线
 {sector_block or "- 暂无板块涨跌榜数据。"}
-
-### 四、资金与情绪
-- 结合成交额和涨跌家数看，当前更适合等待确认，避免仅凭单一热点追高。
-
-### 五、风险提示
-- 市场有风险，投资需谨慎。以上数据仅供参考，不构成投资建议。
 
 ---
 *复盘时间: {datetime.now().strftime('%H:%M')}*
