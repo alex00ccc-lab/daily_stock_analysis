@@ -323,7 +323,7 @@ jobs:
           # ==========================================
           # 美股自选股配置
           # ==========================================
-          STOCK_LIST: ${{ vars.STOCK_LIST || secrets.STOCK_LIST || '' }}
+          STOCK_LIST: ${{ vars.US_STOCK_LIST || secrets.US_STOCK_LIST || '' }}
           US_STOCK_LIST: ${{ vars.US_STOCK_LIST || secrets.US_STOCK_LIST || '' }}
           US_MARKET_ENABLED: 'true'
           MARKET_REVIEW_REGION: 'us'
@@ -333,7 +333,7 @@ jobs:
           # 运行配置
           # ==========================================
           REPORT_TYPE: ${{ vars.REPORT_TYPE || secrets.REPORT_TYPE || 'simple' }}
-          REPORT_LANGUAGE: ${{ vars.REPORT_LANGUAGE || secrets.REPORT_LANGUAGE || 'en' }}
+          REPORT_LANGUAGE: 'zh'
           REPORT_SHOW_LLM_MODEL: ${{ vars.REPORT_SHOW_LLM_MODEL || secrets.REPORT_SHOW_LLM_MODEL || 'true' }}
           SINGLE_STOCK_NOTIFY: ${{ vars.SINGLE_STOCK_NOTIFY || secrets.SINGLE_STOCK_NOTIFY || 'false' }}
           MARKET_REVIEW_ENABLED: ${{ vars.MARKET_REVIEW_ENABLED || secrets.MARKET_REVIEW_ENABLED || 'true' }}
