@@ -1132,9 +1132,18 @@ class Config:
         if _fallback_str.strip():
             litellm_fallback_models = [m.strip() for m in _fallback_str.split(',') if m.strip()]
         else:
-            # Backward compat: use gemini_model_fallback when primary is gemini
-            _gemini_fallback = os.getenv('GEMINI_MODEL_FALLBACK', 'gemini-3-flash-preview').strip()
-            if litellm_model.startswith('gemini/') and _gemini_fallback:
+            # Backward compat: build fallback chain from legacy env vars
+            if litellm_model.startswith('gemini/'):
+                litellm_fallback_models = []
+                _gemini_fallback = os.getenv('GEMINI_MODEL_FALLBACK', 'gemini-3-flash-preview').strip()
+                if _gemini_fallback:
+                    _fb = f'gemini/{_gemini_fallback}' if '/' not in _gemini_fallback else _gemini_fallback
+                    litellm_fallback_models.append(_fb)
+                # DeepSeek 作为独立配额的回退渠道
+                if deepseek_api_keys:
+                    litellm_fallback_models.append('deepseek/deepseek-chat')
+            elif litellm_model.startswith('deepseek/') and gemini_api_keys:
+                _gemini_fallback = os.getenv('GEMINI_MODEL_FALLBACK', 'gemini-2.5-flash').strip()
                 _fb = f'gemini/{_gemini_fallback}' if '/' not in _gemini_fallback else _gemini_fallback
                 litellm_fallback_models = [_fb]
             else:
