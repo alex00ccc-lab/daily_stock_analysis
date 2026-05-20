@@ -1139,9 +1139,19 @@ class Config:
                 if _gemini_fallback:
                     _fb = f'gemini/{_gemini_fallback}' if '/' not in _gemini_fallback else _gemini_fallback
                     litellm_fallback_models.append(_fb)
-                # DeepSeek 作为独立配额的回退渠道
+                # 第三方 LLM 作为独立配额的回退渠道
                 if deepseek_api_keys:
                     litellm_fallback_models.append('deepseek/deepseek-chat')
+                if openai_api_keys:
+                    _openai_fb = os.getenv('OPENAI_MODEL', 'gpt-4.1-mini').strip()
+                    _fb_openai = f'openai/{_openai_fb}' if '/' not in _openai_fb else _openai_fb
+                    if _fb_openai not in litellm_fallback_models:
+                        litellm_fallback_models.append(_fb_openai)
+                if anthropic_api_keys:
+                    _anthropic_fb = os.getenv('ANTHROPIC_MODEL', 'claude-sonnet-4-6').strip()
+                    _fb_anthropic = f'anthropic/{_anthropic_fb}' if '/' not in _anthropic_fb else _anthropic_fb
+                    if _fb_anthropic not in litellm_fallback_models:
+                        litellm_fallback_models.append(_fb_anthropic)
             elif litellm_model.startswith('deepseek/') and gemini_api_keys:
                 _gemini_fallback = os.getenv('GEMINI_MODEL_FALLBACK', 'gemini-2.5-flash').strip()
                 _fb = f'gemini/{_gemini_fallback}' if '/' not in _gemini_fallback else _gemini_fallback
@@ -1198,16 +1208,16 @@ class Config:
                     litellm_model = _ch['models'][0]
                     break
 
-        # Auto-infer LITELLM_FALLBACK_MODELS from channels when not explicitly set
-        if not litellm_fallback_models and llm_channels and litellm_model:
+        # Auto-infer/extend LITELLM_FALLBACK_MODELS from channels
+        if llm_channels and litellm_model:
             _all_ch_models: List[str] = []
             for _ch in llm_channels:
                 _all_ch_models.extend(_ch.get('models', []))
-            _seen = {litellm_model}
-            litellm_fallback_models = [
-                m for m in _all_ch_models
-                if m not in _seen and not _seen.add(m)  # type: ignore[func-returns-value]
-            ]
+            _seen = {litellm_model} | set(litellm_fallback_models)
+            for m in _all_ch_models:
+                if m not in _seen:
+                    litellm_fallback_models.append(m)
+                    _seen.add(m)
 
         agent_litellm_model = normalize_agent_litellm_model(
             os.getenv('AGENT_LITELLM_MODEL', ''),
