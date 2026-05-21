@@ -55,19 +55,19 @@ jobs:
         id: check_trading
         run: |
           SKIP=$(python -c "
-from datetime import date, datetime, timedelta
-from zoneinfo import ZoneInfo
-us_now = datetime.now(ZoneInfo('America/New_York'))
-us_today = us_now.date()
-check_date = us_today if us_now.hour >= 16 else us_today - timedelta(days=1)
-try:
-    import exchange_calendars as xcals
-    cal = xcals.get_calendar('XNYS')
-    is_open = cal.is_session(datetime(check_date.year, check_date.month, check_date.day))
-except Exception:
-    is_open = True
-print('false' if is_open else 'true')
-")
+          from datetime import date, datetime, timedelta
+          from zoneinfo import ZoneInfo
+          us_now = datetime.now(ZoneInfo('America/New_York'))
+          us_today = us_now.date()
+          check_date = us_today if us_now.hour >= 16 else us_today - timedelta(days=1)
+          try:
+              import exchange_calendars as xcals
+              cal = xcals.get_calendar('XNYS')
+              is_open = cal.is_session(datetime(check_date.year, check_date.month, check_date.day))
+          except Exception:
+              is_open = True
+          print('false' if is_open else 'true')
+          ")
           echo "skip=${SKIP}" >> $GITHUB_OUTPUT
           if [ "$SKIP" = "true" ]; then
             echo "非美股交易日，将跳过分析"
