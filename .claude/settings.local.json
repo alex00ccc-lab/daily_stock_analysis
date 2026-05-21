@@ -1,0 +1,50 @@
+{
+  "permissions": {
+    "allow": [
+      "WebFetch(domain:github.com)",
+      "Bash(gh repo *)",
+      "Bash(gh api *)",
+      "Bash(python -c ' *)",
+      "Bash(python *)",
+      "Bash(pip install *)",
+      "Bash(git *)",
+      "WebSearch",
+      "Bash(gh run *)",
+      "Bash(gh auth *)",
+      "Bash(gh workflow *)",
+      "WebFetch(domain:raw.githubusercontent.com)",
+      "Bash(mkdir -p /tmp/us_reports)",
+      "Bash(unzip -o /tmp/us_reports.zip -d /tmp/us_reports)",
+      "Bash(rm -rf /tmp/us_reports /tmp/us_reports.zip)",
+      "Bash(/usr/bin/unzip -o /tmp/us_reports.zip -d /tmp/us_reports)",
+      "Bash(cat /tmp/us_reports/reports/market_review_20260520.md)",
+      "Bash(rm -rf /tmp/cn_reports /tmp/cn_reports.zip)",
+      "Bash(/usr/bin/unzip -o /tmp/cn_reports.zip -d /tmp/cn_reports)",
+      "Bash(gh search *)",
+      "Read(//mnt/c/Users/surface/AppData/Roaming/Claude/**)",
+      "Read(//mnt/c/Users/surface/AppData/Local/Claude/**)",
+      "Bash(cmd.exe *)",
+      "Bash(uv --version)",
+      "Bash(cp .env.example .env)",
+      "Bash(uv run *)",
+      "Bash(.\\\\.venv\\\\Scripts\\\\python.exe -c \"import maverick_mcp; print\\(maverick_mcp.__file__\\)\")",
+      "PowerShell(git clone *)",
+      "Bash(Select-Object -Last 300)",
+      "PowerShell(gh repo view alex00ccc-lab/daily_stock_analysis --json name,defaultBranchRef,pushedAt,isArchived 2>&1)",
+      "PowerShell(gh workflow *)",
+      "PowerShell(gh run *)",
+      "PowerShell(gh api *)",
+      "Bash(python3 -c \"from datetime import date; print\\(date\\(2026,5,21\\).strftime\\('%A'\\)\\)\")",
+      "Bash(python3 -c ' *)",
+      "Read(//usr/**)",
+      "Read(//tmp/**)",
+      "Bash(Get-ChildItem -Path \"D:\\\\股票分析工具\\\\financial-services\" -Depth 1)",
+      "Bash(Select-Object Name, PSIsContainer)",
+      "Bash(Format-Table -AutoSize)"
+    ]
+  },
+  "enabledMcpjsonServers": [
+    "akshare-one-mcp",
+    "maverick-mcp"
+  ]
+}

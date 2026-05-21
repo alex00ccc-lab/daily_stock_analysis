@@ -1,0 +1,21 @@
+{
+  "mcpServers": {
+    "akshare-one-mcp": {
+      "command": "uvx",
+      "args": ["akshare-one-mcp"]
+    },
+    "maverick-mcp": {
+      "command": "uv",
+      "args": [
+        "--directory",
+        "D:/股票分析工具/maverick-mcp",
+        "run",
+        "python",
+        "-m",
+        "maverick_mcp.api.server",
+        "--transport",
+        "stdio"
+      ]
+    }
+  }
+}
