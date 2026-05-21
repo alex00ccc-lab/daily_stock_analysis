@@ -40,7 +40,10 @@
       "Read(//tmp/**)",
       "Bash(Get-ChildItem -Path \"D:\\\\股票分析工具\\\\financial-services\" -Depth 1)",
       "Bash(Select-Object Name, PSIsContainer)",
-      "Bash(Format-Table -AutoSize)"
+      "Bash(Format-Table -AutoSize)",
+      "Bash(ruff --version)",
+      "Bash(pytest --version)",
+      "Bash(mypy --version)"
     ]
   },
   "enabledMcpjsonServers": [

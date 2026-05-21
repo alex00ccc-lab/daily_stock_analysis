@@ -1,28 +1,33 @@
-[tool.black]
-line-length = 120
-target-version = ['py310', 'py311', 'py312']
-include = '\.pyi?$'
-exclude = '''
-/(
-    \.git
-    | \.hg
-    | \.mypy_cache
-    | \.tox
-    | \.venv
-    | venv
-    | _build
-    | buck-out
-    | build
-    | dist
-    | __pycache__
-)/
-'''
+[build-system]
+requires = ["setuptools>=61.0"]
+build-backend = "setuptools.build_meta"
 
-[tool.isort]
-profile = "black"
-line_length = 120
-skip = [".git", "__pycache__", ".env", "venv", ".venv"]
+[project]
+name = "daily_stock_analysis"
+version = "0.1.0"
+authors = [{ name="alex0ccc-lab", email="your@email.com" }]
+description = "股票量化分析工具集"
+requires-python = ">=3.10"
+dependencies = [
+    # 项目运行必需依赖（股票分析常用）
+    "pandas>=2.0",
+    "numpy>=1.24",
+    "matplotlib>=3.7",
+    "requests>=2.31.0",
+    "python-dotenv>=1.0.0",
+    "pytest>=7.0",
+]
 
-[tool.bandit]
-exclude_dirs = ["tests", "test_*.py"]
-skips = ["B101"]  # assert 语句在测试中是允许的
+# ✅ 这就是我帮你加的【开发依赖】
+# 执行 pip install -e ".[dev]" 会自动安装以下所有工具
+[project.optional-dependencies]
+dev = [
+    "pytest-cov>=4.1.0",    # 测试覆盖率
+    "ruff>=0.7.0",          # 代码格式化 + 语法检查
+    "mypy>=1.10.0",         # 类型检查
+    "ipython>=8.20.0",      # 交互式开发
+    "pre-commit>=3.7.0",    # 提交前自动检查
+]
+
+[project.urls]
+Homepage = "https://github.com/alex0ccc-lab/daily_stock_analysis"
