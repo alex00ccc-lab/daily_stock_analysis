@@ -982,6 +982,20 @@ class DatabaseManager:
             ).scalar_one_or_none()
             
             return result is not None
+
+    def get_latest_data_date(self, code: str) -> Optional[date]:
+        """Return the latest K-line date cached in DB for a stock code.
+
+        Returns None if no data exists for this code.
+        """
+        with self.get_session() as session:
+            result = session.execute(
+                select(StockDaily.date)
+                .where(StockDaily.code == code)
+                .order_by(StockDaily.date.desc())
+                .limit(1)
+            ).scalar_one_or_none()
+            return result if result is not None else None
     
     def get_latest_data(
         self, 

@@ -767,6 +767,66 @@ class YfinanceFetcher(BaseFetcher):
             return self._get_us_stock_quote_from_stooq(stock_code)
 
 
+# ---------------------------------------------------------------------------
+# SPDR 板块 ETF 映射 —— 美股板块排名代理（免费，无需额外 API key）
+# ---------------------------------------------------------------------------
+US_SECTOR_ETFS = [
+    ("XLC", "通讯服务"), ("XLY", "可选消费"), ("XLP", "必需消费"),
+    ("XLE", "能源"), ("XLF", "金融"), ("XLV", "医疗健康"),
+    ("XLI", "工业"), ("XLB", "原材料"), ("XLRE", "房地产"),
+    ("XLK", "科技"), ("XLU", "公用事业"),
+]
+
+
+def get_us_sector_rankings(n: int = 5) -> Optional[Tuple[List[Dict], List[Dict]]]:
+    """通过 SPDR 板块 ETF 涨跌幅获取美股板块排名。
+
+    使用 yfinance 免费接口一次性批量拉取 11 只 SPDR Select Sector ETF，
+    按当日涨跌幅排序返回领涨/领跌 Top N。无需额外 API key。
+
+    Args:
+        n: 返回前 n 个
+
+    Returns:
+        (领涨板块列表, 领跌板块列表) 或 None
+    """
+    try:
+        import yfinance as yf
+
+        symbols = [s[0] for s in US_SECTOR_ETFS]
+        tickers = yf.Tickers(" ".join(symbols))
+
+        sectors = []
+        for sym, name in US_SECTOR_ETFS:
+            try:
+                t = tickers.tickers.get(sym)
+                if t is None:
+                    continue
+                info = t.fast_info
+                prev = info.get("previousClose") or info.get("regularMarketPreviousClose")
+                price = info.get("lastPrice") or info.get("regularMarketPrice")
+                if prev and price and prev > 0:
+                    change_pct = (price - prev) / prev * 100
+                    sectors.append({"name": name, "change_pct": round(change_pct, 2)})
+            except Exception:
+                continue
+
+        if not sectors:
+            return None
+        sectors.sort(key=lambda x: x["change_pct"], reverse=True)
+        logger.info("[Yfinance] 美股板块排名获取成功: %d 个板块", len(sectors))
+        return (sectors[:n], sectors[-n:][::-1])
+    except Exception as e:
+        logger.warning("[Yfinance] 美股板块排名获取失败: %s", e)
+        return None
+
+
+    # ---- 美股板块排名（实例方法，DataFetcherManager 调用） ----
+    def get_sector_rankings(self, n: int = 5) -> Optional[Tuple[List[Dict], List[Dict]]]:
+        """获取美股板块涨跌榜（委托给模块级 helper）。"""
+        return get_us_sector_rankings(n)
+
+
 if __name__ == "__main__":
     # 测试代码
     logging.basicConfig(level=logging.DEBUG)

@@ -2165,6 +2165,7 @@ class GeminiAnalyzer:
         stream: bool = False,
         stream_progress_callback: Optional[Callable[[int], None]] = None,
         response_validator: Optional[Callable[[str], None]] = None,
+        override_model: Optional[str] = None,
     ) -> Tuple[str, str, Dict[str, Any]]:
         """Call LLM via litellm with fallback across configured models.
 
@@ -2196,6 +2197,8 @@ class GeminiAnalyzer:
 
         models_to_try = [config.litellm_model] + (config.litellm_fallback_models or [])
         models_to_try = [m for m in models_to_try if m]
+        if override_model:
+            models_to_try = [override_model] + [m for m in models_to_try if m != override_model]
 
         use_channel_router = self._has_channel_config(config)
 
@@ -2341,6 +2344,7 @@ class GeminiAnalyzer:
         prompt: str,
         max_tokens: int = 2048,
         temperature: float = 0.7,
+        model_override: Optional[str] = None,
     ) -> Optional[str]:
         """Public entry point for free-form text generation.
 
@@ -2349,9 +2353,11 @@ class GeminiAnalyzer:
         _litellm_available, _router, _model, _use_openai, or _use_anthropic.
 
         Args:
-            prompt:      Text prompt to send to the LLM.
-            max_tokens:  Maximum tokens in the response (default 2048).
-            temperature: Sampling temperature (default 0.7).
+            prompt:         Text prompt to send to the LLM.
+            max_tokens:     Maximum tokens in the response (default 2048).
+            temperature:    Sampling temperature (default 0.7).
+            model_override: Optional model override (e.g. for market review to
+                            use a dedicated model different from the primary).
 
         Returns:
             Response text, or None if the LLM call fails (error is logged).
@@ -2360,6 +2366,7 @@ class GeminiAnalyzer:
             result = self._call_litellm(
                 prompt,
                 generation_config={"max_tokens": max_tokens, "temperature": temperature},
+                override_model=model_override,
             )
             if isinstance(result, tuple):
                 text, model_used, usage = result
@@ -2602,7 +2609,12 @@ class GeminiAnalyzer:
         no_data_text = get_no_data_text(report_language)
         
         # ========== 构建决策仪表盘格式的输入 ==========
+        price_change_source = context.get('price_change_source', '')
+        price_change_note = '实时行情' if price_change_source == 'realtime' else ('DB缓存自算' if price_change_source == 'db_cached' else '')
+
         prompt = f"""# 决策仪表盘分析请求
+
+> 📌 **数据说明**：所有历史价格均为前复权价格（以当前实际市场价为基准调整）。涨跌幅以{price_change_note or '实时行情接口'}数据为准。PE/PB/市值由数据源（东方财富/腾讯/新浪）实时计算，可能与最新财报口径存在方法论差异。
 
 ## 📊 股票基础信息
 | 项目 | 数据 |
@@ -2610,6 +2622,7 @@ class GeminiAnalyzer:
 | 股票代码 | **{code}** |
 | 股票名称 | **{stock_name}** |
 | 分析日期 | {context.get('date', unknown_text)} |
+| 价格基准 | 前复权（当前实际市场价） |
 
 ---
 
@@ -2645,11 +2658,13 @@ class GeminiAnalyzer:
 | 当前价格 | {rt.get('price', 'N/A')} 元 | |
 | **量比** | **{rt.get('volume_ratio', 'N/A')}** | {rt.get('volume_ratio_desc', '')} |
 | **换手率** | **{rt.get('turnover_rate', 'N/A')}%** | |
-| 市盈率(动态) | {rt.get('pe_ratio', 'N/A')} | |
-| 市净率 | {rt.get('pb_ratio', 'N/A')} | |
+| 市盈率(动态) | {rt.get('pe_ratio', 'N/A')} | ⚠️ 可能为动态/静态/TTM口径 |
+| 市净率 | {rt.get('pb_ratio', 'N/A')} | 数据源实时计算 |
 | 总市值 | {self._format_amount(rt.get('total_mv'))} | |
 | 流通市值 | {self._format_amount(rt.get('circ_mv'))} | |
 | 60日涨跌幅 | {rt.get('change_60d', 'N/A')}% | 中期表现 |
+
+> ⚠️ PE/PB/市值由数据源实时计算。PE 可能为动态PE（基于预测盈利）、静态PE（基于上年年报）或TTM PE（基于最近4个季度），具体取决于数据源实现。用于估值判断时请注意与财报中的净利润口径可能存在差异。
 """
 
         # 添加财报与分红（价值投资口径）

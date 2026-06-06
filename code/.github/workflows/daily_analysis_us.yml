@@ -105,6 +105,11 @@ print('false' if is_open else 'true')
           GEMINI_MODEL_FALLBACK: ${{ vars.GEMINI_MODEL_FALLBACK || secrets.GEMINI_MODEL_FALLBACK || 'gemini-2.5-flash' }}
           GEMINI_REQUEST_DELAY: '3.0'
 
+          # 主模型：DeepSeek（个股分析主力，稳定可靠）
+          LITELLM_MODEL: ${{ vars.LITELLM_MODEL || 'deepseek/deepseek-chat' }}
+          # 大盘复盘专用模型（Gemini 审核，确保准确完整）
+          MARKET_REVIEW_MODEL: ${{ vars.MARKET_REVIEW_MODEL || 'gemini/gemini-2.5-flash' }}
+
           # AIHubMix
           AIHUBMIX_KEY: ${{ secrets.AIHUBMIX_KEY }}
 

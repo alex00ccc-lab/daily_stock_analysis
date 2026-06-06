@@ -218,6 +218,21 @@ class StockAnalysisPipeline:
                 code, current_time=current_time
             )
 
+            # 定期强制刷新 K 线：避免 DB 缓存的前复权数据因除权事件基准漂移
+            force_kline_refresh_days = getattr(self.config, 'force_kline_refresh_days', 5)
+            last_kline_date = self.db.get_latest_data_date(code) if hasattr(self.db, 'get_latest_data_date') else None
+            if not force_refresh and last_kline_date is not None and target_date is not None:
+                try:
+                    days_since = (target_date - last_kline_date).days
+                    if days_since >= force_kline_refresh_days:
+                        force_refresh = True
+                        logger.info(
+                            f"{stock_name}({code}) K线缓存已超过 {days_since} 天（阈值 {force_kline_refresh_days} 天），"
+                            f"强制刷新以确保前复权基准最新"
+                        )
+                except Exception:
+                    pass
+
             # 断点续传检查：如果最新可复用交易日的数据已存在，则跳过
             if not force_refresh and self.db.has_today_data(code, target_date):
                 logger.info(
@@ -656,13 +671,22 @@ class StockAnalysisPipeline:
                 enhanced['date'] = get_market_now(
                     get_market_for_stock(normalize_stock_code(enhanced.get('code', '')))
                 ).date().isoformat()
-                if yesterday_close is not None:
+                # 涨跌幅：优先使用实时源（交易所/数据商官方计算，避免 DB 缓存前复权基准漂移）
+                rt_pct = getattr(realtime_quote, 'change_pct', None)
+                if rt_pct is not None:
+                    try:
+                        enhanced['price_change_ratio'] = round(float(rt_pct), 2)
+                        enhanced['price_change_source'] = 'realtime'
+                    except (TypeError, ValueError):
+                        pass
+                if 'price_change_ratio' not in enhanced and yesterday_close is not None:
                     try:
                         yc = float(yesterday_close)
                         if yc > 0:
                             enhanced['price_change_ratio'] = round(
                                 (price - yc) / yc * 100, 2
                             )
+                            enhanced['price_change_source'] = 'db_cached'
                     except (TypeError, ValueError):
                         pass
                 if vol is not None and enhanced.get('yesterday'):
