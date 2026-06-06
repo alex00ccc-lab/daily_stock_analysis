@@ -50,7 +50,7 @@ US_PROFILE = MarketProfile(
     ],
     prompt_index_hint="分析标普500、纳斯达克、道指等各指数走势特点",
     has_market_stats=False,
-    has_sector_rankings=False,
+    has_sector_rankings=True,   # yfinance SPDR 板块 ETF 代理
 )
 
 HK_PROFILE = MarketProfile(
@@ -63,7 +63,7 @@ HK_PROFILE = MarketProfile(
     ],
     prompt_index_hint="分析恒生指数、恒生科技指数、国企指数等各指数走势特点",
     has_market_stats=False,
-    has_sector_rankings=False,
+    has_sector_rankings=True,   # 尝试 akshare 港股板块接口
 )
 
 

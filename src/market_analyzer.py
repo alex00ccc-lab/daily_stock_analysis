@@ -463,10 +463,18 @@ Focus on index trend, liquidity, and sector rotation to shape the next-session t
         
         # 构建 Prompt
         prompt = self._build_review_prompt(overview, news)
-        
+
+        # 大盘复盘专用模型：优先使用 MARKET_REVIEW_MODEL 配置
+        market_review_model = getattr(self.config, 'market_review_model', '') or None
+
         logger.info("[大盘] 调用大模型生成复盘报告...")
+        if market_review_model:
+            logger.info("[大盘] 使用大盘复盘专用模型: %s", market_review_model)
         # Use the public generate_text() entry point — never access private analyzer attributes.
-        review = self.analyzer.generate_text(prompt, max_tokens=8192, temperature=0.7)
+        review = self.analyzer.generate_text(
+            prompt, max_tokens=8192, temperature=0.7,
+            model_override=market_review_model,
+        )
 
         if review:
             logger.info("[大盘] 复盘报告生成成功，长度: %d 字符", len(review))

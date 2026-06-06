@@ -543,6 +543,7 @@ class Config:
     # LiteLLM unified model config (provider/model format, e.g. gemini/gemini-3.1-pro-preview)
     litellm_model: str = ""  # Primary model; must include provider prefix when set explicitly
     litellm_fallback_models: List[str] = field(default_factory=list)  # Cross-model fallback list
+    market_review_model: str = ""  # 大盘复盘专用模型（MARKET_REVIEW_MODEL），空则跟随 litellm_model
 
     # Unified temperature for all LLM calls (LLM_TEMPERATURE); legacy per-provider temps are fallback only
     llm_temperature: float = 0.7
@@ -797,6 +798,7 @@ class Config:
     enable_realtime_technical_indicators: bool = True
     # 筹码分布开关（该接口不稳定，云端部署建议关闭）
     enable_chip_distribution: bool = True
+    force_kline_refresh_days: int = 5  # 每 N 个交易日强制重新拉取 K 线，确保前复权基准最新
     # 东财接口补丁开关
     enable_eastmoney_patch: bool = False
     # 实时行情数据源优先级（逗号分隔）
@@ -1139,19 +1141,9 @@ class Config:
                 if _gemini_fallback:
                     _fb = f'gemini/{_gemini_fallback}' if '/' not in _gemini_fallback else _gemini_fallback
                     litellm_fallback_models.append(_fb)
-                # 第三方 LLM 作为独立配额的回退渠道
+                # DeepSeek 作为独立配额的回退渠道
                 if deepseek_api_keys:
                     litellm_fallback_models.append('deepseek/deepseek-chat')
-                if openai_api_keys:
-                    _openai_fb = os.getenv('OPENAI_MODEL', 'gpt-4.1-mini').strip()
-                    _fb_openai = f'openai/{_openai_fb}' if '/' not in _openai_fb else _openai_fb
-                    if _fb_openai not in litellm_fallback_models:
-                        litellm_fallback_models.append(_fb_openai)
-                if anthropic_api_keys:
-                    _anthropic_fb = os.getenv('ANTHROPIC_MODEL', 'claude-sonnet-4-6').strip()
-                    _fb_anthropic = f'anthropic/{_anthropic_fb}' if '/' not in _anthropic_fb else _anthropic_fb
-                    if _fb_anthropic not in litellm_fallback_models:
-                        litellm_fallback_models.append(_fb_anthropic)
             elif litellm_model.startswith('deepseek/') and gemini_api_keys:
                 _gemini_fallback = os.getenv('GEMINI_MODEL_FALLBACK', 'gemini-2.5-flash').strip()
                 _fb = f'gemini/{_gemini_fallback}' if '/' not in _gemini_fallback else _gemini_fallback
@@ -1208,16 +1200,16 @@ class Config:
                     litellm_model = _ch['models'][0]
                     break
 
-        # Auto-infer/extend LITELLM_FALLBACK_MODELS from channels
-        if llm_channels and litellm_model:
+        # Auto-infer LITELLM_FALLBACK_MODELS from channels when not explicitly set
+        if not litellm_fallback_models and llm_channels and litellm_model:
             _all_ch_models: List[str] = []
             for _ch in llm_channels:
                 _all_ch_models.extend(_ch.get('models', []))
-            _seen = {litellm_model} | set(litellm_fallback_models)
-            for m in _all_ch_models:
-                if m not in _seen:
-                    litellm_fallback_models.append(m)
-                    _seen.add(m)
+            _seen = {litellm_model}
+            litellm_fallback_models = [
+                m for m in _all_ch_models
+                if m not in _seen and not _seen.add(m)  # type: ignore[func-returns-value]
+            ]
 
         agent_litellm_model = normalize_agent_litellm_model(
             os.getenv('AGENT_LITELLM_MODEL', ''),
@@ -1336,6 +1328,7 @@ class Config:
             longbridge_access_token=os.getenv('LONGBRIDGE_ACCESS_TOKEN') or None,
             litellm_model=litellm_model,
             litellm_fallback_models=litellm_fallback_models,
+            market_review_model=os.getenv('MARKET_REVIEW_MODEL', '').strip(),
             llm_temperature=resolve_unified_llm_temperature(litellm_model),
             litellm_config_path=litellm_config_path,
             llm_models_source=llm_models_source,
@@ -1619,6 +1612,7 @@ class Config:
                 'ENABLE_REALTIME_TECHNICAL_INDICATORS', 'true'
             ).lower() == 'true',
             enable_chip_distribution=os.getenv('ENABLE_CHIP_DISTRIBUTION', 'true').lower() == 'true',
+            force_kline_refresh_days=parse_env_int(os.getenv('FORCE_KLINE_REFRESH_DAYS'), 5, field_name='FORCE_KLINE_REFRESH_DAYS', minimum=1, maximum=30),
             # 东财接口补丁开关
             enable_eastmoney_patch=os.getenv('ENABLE_EASTMONEY_PATCH', 'false').lower() == 'true',
             # 实时行情数据源优先级：
