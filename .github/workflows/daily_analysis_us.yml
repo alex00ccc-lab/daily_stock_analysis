@@ -89,7 +89,8 @@ jobs:
           LITELLM_CONFIG: ${{ vars.LITELLM_CONFIG || secrets.LITELLM_CONFIG }}
           LITELLM_CONFIG_YAML: ${{ vars.LITELLM_CONFIG_YAML || secrets.LITELLM_CONFIG_YAML }}
           LITELLM_API_KEY: ${{ secrets.LITELLM_API_KEY }}
-          LITELLM_MODEL: ${{ vars.LITELLM_MODEL || secrets.LITELLM_MODEL }}
+          # 主模型：DeepSeek（个股分析主力，稳定可靠）
+          LITELLM_MODEL: ${{ vars.LITELLM_MODEL || 'deepseek/deepseek-chat' }}
           LITELLM_FALLBACK_MODELS: ${{ vars.LITELLM_FALLBACK_MODELS || secrets.LITELLM_FALLBACK_MODELS }}
           AGENT_LITELLM_MODEL: ${{ vars.AGENT_LITELLM_MODEL || secrets.AGENT_LITELLM_MODEL }}
           VISION_MODEL: ${{ vars.VISION_MODEL || secrets.VISION_MODEL }}
@@ -104,9 +105,6 @@ jobs:
           GEMINI_MODEL: ${{ vars.GEMINI_MODEL || secrets.GEMINI_MODEL || 'gemini-3-flash-preview' }}
           GEMINI_MODEL_FALLBACK: ${{ vars.GEMINI_MODEL_FALLBACK || secrets.GEMINI_MODEL_FALLBACK || 'gemini-2.5-flash' }}
           GEMINI_REQUEST_DELAY: '3.0'
-
-          # 主模型：DeepSeek（个股分析主力，稳定可靠）
-          LITELLM_MODEL: ${{ vars.LITELLM_MODEL || 'deepseek/deepseek-chat' }}
           # 大盘复盘专用模型（Gemini 审核，确保准确完整）
           MARKET_REVIEW_MODEL: ${{ vars.MARKET_REVIEW_MODEL || 'gemini/gemini-2.5-flash' }}
 
