@@ -352,8 +352,8 @@ jobs:
           # ==========================================
           # 美股自选股配置
           # ==========================================
-          STOCK_LIST: ${{ vars.US_STOCK_LIST || secrets.US_STOCK_LIST || '' }}
-          US_STOCK_LIST: ${{ vars.US_STOCK_LIST || secrets.US_STOCK_LIST || '' }}
+          STOCK_LIST: ${{ vars.us_stock_list || secrets.us_stock_list || vars.US_STOCK_LIST || secrets.US_STOCK_LIST || secrets.US_MARKET_LIST || '' }}
+          US_STOCK_LIST: ${{ vars.us_stock_list || secrets.us_stock_list || vars.US_STOCK_LIST || secrets.US_STOCK_LIST || secrets.US_MARKET_LIST || '' }}
           US_MARKET_ENABLED: 'true'
           MARKET_REVIEW_REGION: 'us'
           MARKET_REVIEW_COLOR_SCHEME: ${{ vars.MARKET_REVIEW_COLOR_SCHEME || secrets.MARKET_REVIEW_COLOR_SCHEME || 'green_up' }}

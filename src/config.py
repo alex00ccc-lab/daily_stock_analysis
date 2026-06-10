@@ -1023,11 +1023,19 @@ class Config:
             stock_list = ['600519', '000001', '300750']
 
         # 解析美股自选股列表
-        us_stock_list_str = cls._resolve_env_value(
-            'US_STOCK_LIST',
-            default='',
-            prefer_env_file=True,
-        )
+        # 主名 us_stock_list，兼容旧名 US_STOCK_LIST / US_MARKET_LIST
+        _US_STOCK_LIST_KEYS = ('us_stock_list', 'US_STOCK_LIST', 'US_MARKET_LIST')
+        us_stock_list_str = ''
+        for _key in _US_STOCK_LIST_KEYS:
+            _candidate = cls._resolve_env_value(_key, default='', prefer_env_file=True)
+            if _candidate and _candidate.strip():
+                us_stock_list_str = _candidate
+                if _key != 'us_stock_list':
+                    logger.info(
+                        "美股列表从 %s 读取（us_stock_list 未设置），建议统一使用 us_stock_list",
+                        _key,
+                    )
+                break
         us_stock_list = [
             (c or "").strip().upper()
             for c in us_stock_list_str.split(',')
@@ -2236,23 +2244,20 @@ class Config:
 
     def refresh_stock_list(self) -> None:
         """
-        热读取 STOCK_LIST 环境变量并更新配置中的自选股列表
-        
+        热读取 STOCK_LIST / us_stock_list 环境变量并更新配置中的自选股列表
+
         支持两种配置方式：
         1. .env 文件（本地开发、定时任务模式） - 修改后下次执行自动生效
         2. 系统环境变量（GitHub Actions、Docker） - 启动时固定，运行中不变
         """
-        # 优先从 .env 文件读取最新配置，这样即使在容器环境中修改了 .env 文件，
-        # 也能获取到最新的股票列表配置
         env_file = os.getenv("ENV_FILE")
         env_path = Path(env_file) if env_file else (Path(__file__).parent.parent / '.env')
+
+        # --- A股 / 港股列表 (STOCK_LIST) ---
         stock_list_str = ''
         if env_path.exists():
-            # 直接从 .env 文件读取最新的配置
             env_values = dotenv_values(env_path)
             stock_list_str = (env_values.get('STOCK_LIST') or '').strip()
-
-        # 如果 .env 文件不存在或未配置，才尝试从系统环境变量读取
         if not stock_list_str:
             stock_list_str = os.getenv('STOCK_LIST', '')
 
@@ -2261,11 +2266,29 @@ class Config:
             for c in stock_list_str.split(',')
             if (c or "").strip()
         ]
-
         if not stock_list:
             stock_list = ['000001']
-
         self.stock_list = stock_list
+
+        # --- 美股列表 (us_stock_list, 兼容 US_STOCK_LIST / US_MARKET_LIST) ---
+        _US_KEYS = ('us_stock_list', 'US_STOCK_LIST', 'US_MARKET_LIST')
+        us_stock_list_str = ''
+        for _key in _US_KEYS:
+            _candidate = ''
+            if env_path.exists():
+                env_values_local = dotenv_values(env_path)
+                _candidate = (env_values_local.get(_key) or '').strip()
+            if not _candidate:
+                _candidate = (os.getenv(_key) or '').strip()
+            if _candidate:
+                us_stock_list_str = _candidate
+                break
+
+        self.us_stock_list = [
+            (c or "").strip().upper()
+            for c in us_stock_list_str.split(',')
+            if (c or "").strip()
+        ]
     
     def validate_structured(self) -> List[ConfigIssue]:
         """Return structured validation issues with severity levels.
