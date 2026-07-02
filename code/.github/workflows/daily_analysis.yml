@@ -348,6 +348,7 @@ jobs:
           # 自选股配置
           # ==========================================
           STOCK_LIST: ${{ vars.STOCK_LIST || secrets.STOCK_LIST || '600519' }}
+          us_stock_list: ${{ vars.us_stock_list || secrets.us_stock_list || vars.US_STOCK_LIST || secrets.US_STOCK_LIST || secrets.US_MARKET_LIST || '' }}
           US_STOCK_LIST: ${{ vars.us_stock_list || secrets.us_stock_list || vars.US_STOCK_LIST || secrets.US_STOCK_LIST || secrets.US_MARKET_LIST || '' }}
           # 美股由 daily_analysis_us.yml 在 北京时间 09:00 (UTC 01:00) 独立处理
           US_MARKET_ENABLED: 'false'

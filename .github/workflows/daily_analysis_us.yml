@@ -353,6 +353,7 @@ jobs:
           # 美股自选股配置
           # ==========================================
           STOCK_LIST: ${{ vars.us_stock_list || secrets.us_stock_list || vars.US_STOCK_LIST || secrets.US_STOCK_LIST || secrets.US_MARKET_LIST || '' }}
+          us_stock_list: ${{ vars.us_stock_list || secrets.us_stock_list || vars.US_STOCK_LIST || secrets.US_STOCK_LIST || secrets.US_MARKET_LIST || '' }}
           US_STOCK_LIST: ${{ vars.us_stock_list || secrets.us_stock_list || vars.US_STOCK_LIST || secrets.US_STOCK_LIST || secrets.US_MARKET_LIST || '' }}
           US_MARKET_ENABLED: 'true'
           MARKET_REVIEW_REGION: 'us'
@@ -392,8 +393,10 @@ jobs:
           import os
           for key in ['us_stock_list', 'US_STOCK_LIST', 'US_MARKET_LIST', 'STOCK_LIST', 'US_MARKET_ENABLED']:
               val = os.getenv(key)
-              status = f'已设置 ({len(val.split(\",\"))} 只)' if val else '未设置'
-              print(f'  os.getenv({key!r:25s}) → {status}')
+              if val and val.strip():
+                  print(f'  ✅ os.getenv({key!r:25s}) → 已设置 ({len(val.split(\",\"))} 只): {val[:80]}...' if len(val) > 80 else f'  ✅ os.getenv({key!r:25s}) → 已设置 ({len(val.split(\",\"))} 只): {val}')
+              else:
+                  print(f'  ❌ os.getenv({key!r:25s}) → 未设置')
           "
 
           # 判断运行模式
@@ -405,11 +408,13 @@ jobs:
           echo "⏰ 时间: $(TZ='Asia/Shanghai' date '+%Y-%m-%d %H:%M:%S')"
           echo "🎯 运行模式: $MODE"
           echo "--- 美股配置诊断 ---"
-          echo "STOCK_LIST (env):     [$STOCK_LIST]"
-          echo "US_STOCK_LIST (env):  [$US_STOCK_LIST]"
-          echo "US_MARKET_ENABLED:    [$US_MARKET_ENABLED]"
-          echo "STOCK_LIST count:     $(echo "$STOCK_LIST" | tr ',' '\n' | sed '/^$/d' | wc -l) 只"
-          echo "US_STOCK_LIST count:  $(echo "$US_STOCK_LIST" | tr ',' '\n' | sed '/^$/d' | wc -l) 只"
+          echo "STOCK_LIST (env):         [$STOCK_LIST]"
+          echo "us_stock_list (env):      [$us_stock_list]"
+          echo "US_STOCK_LIST (env):      [$US_STOCK_LIST]"
+          echo "US_MARKET_ENABLED:        [$US_MARKET_ENABLED]"
+          echo "STOCK_LIST count:         $(echo "$STOCK_LIST" | tr ',' '\n' | sed '/^$/d' | wc -l) 只"
+          echo "us_stock_list count:      $(echo "$us_stock_list" | tr ',' '\n' | sed '/^$/d' | wc -l) 只"
+          echo "US_STOCK_LIST count:      $(echo "$US_STOCK_LIST" | tr ',' '\n' | sed '/^$/d' | wc -l) 只"
           echo "⚠️ 如果上面 count=0，说明 GitHub Variable/Secret 未正确设置或为空"
           echo "📝 报告类型: $REPORT_TYPE"
           echo ""
