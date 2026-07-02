@@ -1022,23 +1022,20 @@ class Config:
         if not stock_list:
             stock_list = ['600519', '000001', '300750']
 
-        # 解析美股自选股列表
-        # 主名 us_stock_list，兼容旧名 US_STOCK_LIST / US_MARKET_LIST
+        # 解析美股自选股列表（大小写不敏感）
+        # 优先 .env 文件 → 回退系统环境变量
         _US_STOCK_LIST_KEYS = ('us_stock_list', 'US_STOCK_LIST', 'US_MARKET_LIST')
-        us_stock_list_str = ''
-        for _key in _US_STOCK_LIST_KEYS:
-            _candidate = cls._resolve_env_value(_key, default='', prefer_env_file=True)
-            if _candidate and _candidate.strip():
-                us_stock_list_str = _candidate
-                if _key != 'us_stock_list':
-                    logger.info(
-                        "美股列表从 %s 读取（us_stock_list 未设置），建议统一使用 us_stock_list",
-                        _key,
-                    )
-                break
+        us_stock_list_str, _us_matched_key = cls._find_env_file_case_insensitive(_US_STOCK_LIST_KEYS)
+        if not us_stock_list_str:
+            us_stock_list_str, _us_matched_key = cls._find_env_case_insensitive(_US_STOCK_LIST_KEYS)
+        if _us_matched_key and _us_matched_key != 'us_stock_list':
+            logger.info(
+                "美股列表从 %s 读取（大小写不敏感匹配），建议统一使用 us_stock_list",
+                _us_matched_key,
+            )
         us_stock_list = [
             (c or "").strip().upper()
-            for c in us_stock_list_str.split(',')
+            for c in (us_stock_list_str or '').split(',')
             if (c or "").strip()
         ]
         us_market_enabled = parse_env_bool(
@@ -1972,6 +1969,39 @@ class Config:
         )
         return 'simple'
 
+    @staticmethod
+    def _find_env_case_insensitive(keys: Tuple[str, ...]) -> Tuple[Optional[str], Optional[str]]:
+        """大小写不敏感查找环境变量，返回 (value, matched_key)。
+
+        遍历 os.environ 的全部 key 做小写匹配，无论 GitHub 将 Secret/Variable
+        存储为 us_stock_list / US_STOCK_LIST / Us_Stock_List 均能命中。
+        按 keys 顺序返回第一个匹配的值。
+        """
+        env_lower = {k.lower(): v for k, v in os.environ.items()}
+        for key in keys:
+            val = env_lower.get(key.lower())
+            if val and val.strip():
+                return (val, key)
+        return (None, None)
+
+    @classmethod
+    def _find_env_file_case_insensitive(cls, keys: Tuple[str, ...]) -> Tuple[Optional[str], Optional[str]]:
+        """大小写不敏感查找 .env 文件，返回 (value, matched_key)。"""
+        env_file = os.getenv("ENV_FILE")
+        env_path = Path(env_file) if env_file else (Path(__file__).parent.parent / ".env")
+        if not env_path.exists():
+            return (None, None)
+        try:
+            env_values = dotenv_values(env_path)
+        except Exception:
+            return (None, None)
+        file_lower = {str(k).lower(): str(v) for k, v in env_values.items() if k is not None}
+        for key in keys:
+            val = file_lower.get(key.lower())
+            if val and val.strip():
+                return (val, key)
+        return (None, None)
+
     @classmethod
     def _get_env_file_value(cls, key: str) -> Optional[str]:
         """Read one config key directly from the active `.env` file."""
@@ -2277,30 +2307,20 @@ class Config:
         self.stock_list = stock_list
         logger.info("自选股列表已刷新: %d 只 (来源: %s)", len(self.stock_list), stock_source)
 
-        # --- 美股列表 (us_stock_list, 兼容 US_STOCK_LIST / US_MARKET_LIST) ---
+        # --- 美股列表（大小写不敏感，兼容 GitHub 自动大写转换） ---
         _US_KEYS = ('us_stock_list', 'US_STOCK_LIST', 'US_MARKET_LIST')
-        us_stock_list_str = ''
-        _us_source_key = None
-        for _key in _US_KEYS:
-            _candidate = ''
-            if env_path.exists():
-                env_values_local = dotenv_values(env_path)
-                _candidate = (env_values_local.get(_key) or '').strip()
-            if not _candidate:
-                _candidate = (os.getenv(_key) or '').strip()
-            if _candidate:
-                us_stock_list_str = _candidate
-                _us_source_key = _key
-                break
+        us_stock_list_str, _us_source_key = self._find_env_file_case_insensitive(_US_KEYS)
+        if not us_stock_list_str:
+            us_stock_list_str, _us_source_key = Config._find_env_case_insensitive(_US_KEYS)
 
         self.us_stock_list = [
             (c or "").strip().upper()
-            for c in us_stock_list_str.split(',')
+            for c in (us_stock_list_str or '').split(',')
             if (c or "").strip()
         ]
         if _us_source_key and _us_source_key != 'us_stock_list':
             logger.info(
-                "美股列表从 %s 读取（us_stock_list 未设置），建议统一使用 us_stock_list",
+                "美股列表从 %s 读取（大小写不敏感匹配），建议统一使用 us_stock_list",
                 _us_source_key,
             )
         if self.us_stock_list:

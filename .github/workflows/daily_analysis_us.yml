@@ -351,6 +351,8 @@ jobs:
 
           # ==========================================
           # 美股自选股配置
+          # GitHub Secrets/Variables 大小写不敏感，保存小写会自动转大写
+          # 下划线 us_stock_list 和 US_STOCK_LIST 为同一变量，Python 端做大小写不敏感匹配
           # ==========================================
           STOCK_LIST: ${{ vars.us_stock_list || secrets.us_stock_list || vars.US_STOCK_LIST || secrets.US_STOCK_LIST || secrets.US_MARKET_LIST || '' }}
           us_stock_list: ${{ vars.us_stock_list || secrets.us_stock_list || vars.US_STOCK_LIST || secrets.US_STOCK_LIST || secrets.US_MARKET_LIST || '' }}
