@@ -2255,11 +2255,16 @@ class Config:
 
         # --- A股 / 港股列表 (STOCK_LIST) ---
         stock_list_str = ''
+        stock_source = 'default'
         if env_path.exists():
             env_values = dotenv_values(env_path)
             stock_list_str = (env_values.get('STOCK_LIST') or '').strip()
+            if stock_list_str:
+                stock_source = '.env file'
         if not stock_list_str:
             stock_list_str = os.getenv('STOCK_LIST', '')
+            if stock_list_str:
+                stock_source = 'env var'
 
         stock_list = [
             (c or "").strip().upper()
@@ -2268,11 +2273,14 @@ class Config:
         ]
         if not stock_list:
             stock_list = ['000001']
+            stock_source = 'fallback default'
         self.stock_list = stock_list
+        logger.info("自选股列表已刷新: %d 只 (来源: %s)", len(self.stock_list), stock_source)
 
         # --- 美股列表 (us_stock_list, 兼容 US_STOCK_LIST / US_MARKET_LIST) ---
         _US_KEYS = ('us_stock_list', 'US_STOCK_LIST', 'US_MARKET_LIST')
         us_stock_list_str = ''
+        _us_source_key = None
         for _key in _US_KEYS:
             _candidate = ''
             if env_path.exists():
@@ -2282,6 +2290,7 @@ class Config:
                 _candidate = (os.getenv(_key) or '').strip()
             if _candidate:
                 us_stock_list_str = _candidate
+                _us_source_key = _key
                 break
 
         self.us_stock_list = [
@@ -2289,6 +2298,13 @@ class Config:
             for c in us_stock_list_str.split(',')
             if (c or "").strip()
         ]
+        if _us_source_key and _us_source_key != 'us_stock_list':
+            logger.info(
+                "美股列表从 %s 读取（us_stock_list 未设置），建议统一使用 us_stock_list",
+                _us_source_key,
+            )
+        if self.us_stock_list:
+            logger.info("美股列表已刷新: %d 只 (来源: %s)", len(self.us_stock_list), _us_source_key or 'env')
     
     def validate_structured(self) -> List[ConfigIssue]:
         """Return structured validation issues with severity levels.
