@@ -356,7 +356,6 @@ print('false' if is_open else 'true')
           # ==========================================
           STOCK_LIST: ${{ vars.us_stock_list || secrets.us_stock_list || vars.US_STOCK_LIST || secrets.US_STOCK_LIST || secrets.US_MARKET_LIST || '' }}
           us_stock_list: ${{ vars.us_stock_list || secrets.us_stock_list || vars.US_STOCK_LIST || secrets.US_STOCK_LIST || secrets.US_MARKET_LIST || '' }}
-          US_STOCK_LIST: ${{ vars.us_stock_list || secrets.us_stock_list || vars.US_STOCK_LIST || secrets.US_STOCK_LIST || secrets.US_MARKET_LIST || '' }}
           US_MARKET_ENABLED: 'true'
           MARKET_REVIEW_REGION: 'us'
           MARKET_REVIEW_COLOR_SCHEME: ${{ vars.MARKET_REVIEW_COLOR_SCHEME || secrets.MARKET_REVIEW_COLOR_SCHEME || 'green_up' }}
@@ -412,11 +411,9 @@ print('false' if is_open else 'true')
           echo "--- 美股配置诊断 ---"
           echo "STOCK_LIST (env):         [$STOCK_LIST]"
           echo "us_stock_list (env):      [$us_stock_list]"
-          echo "US_STOCK_LIST (env):      [$US_STOCK_LIST]"
           echo "US_MARKET_ENABLED:        [$US_MARKET_ENABLED]"
           echo "STOCK_LIST count:         $(echo "$STOCK_LIST" | tr ',' '\n' | sed '/^$/d' | wc -l) 只"
           echo "us_stock_list count:      $(echo "$us_stock_list" | tr ',' '\n' | sed '/^$/d' | wc -l) 只"
-          echo "US_STOCK_LIST count:      $(echo "$US_STOCK_LIST" | tr ',' '\n' | sed '/^$/d' | wc -l) 只"
           echo "⚠️ 如果上面 count=0，说明 GitHub Variable/Secret 未正确设置或为空"
           echo "📝 报告类型: $REPORT_TYPE"
           echo ""
