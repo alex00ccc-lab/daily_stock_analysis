@@ -166,19 +166,24 @@ def get_effective_trading_date(
 
 def get_open_markets_today() -> Set[str]:
     """
-    Get markets that are open today (by each market's local timezone).
+    Get markets that have completed trading data available for analysis.
+
+    Uses get_effective_trading_date() to resolve the most recent completed
+    trading session per market, correctly handling:
+    - Holidays/weekends → previous trading session
+    - Trading day after market close → current session
+    - Trading day before market close → previous completed session
 
     Returns:
-        Set of market keys ('cn', 'hk', 'us') that are trading today
+        Set of market keys ('cn', 'hk', 'us') that have data available
     """
     if not _XCALS_AVAILABLE:
         return {"cn", "hk", "us"}
     result: Set[str] = set()
     for mkt, tz_name in MARKET_TIMEZONE.items():
         try:
-            tz = ZoneInfo(tz_name)
-            today = datetime.now(tz).date()
-            if is_market_open(mkt, today):
+            effective_date = get_effective_trading_date(mkt)
+            if is_market_open(mkt, effective_date):
                 result.add(mkt)
         except Exception as e:
             logger.warning("get_open_markets_today fail-open for %s: %s", mkt, e)

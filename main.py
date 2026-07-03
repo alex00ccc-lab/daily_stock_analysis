@@ -426,6 +426,26 @@ def _compute_trading_day_filter(
     return (filtered_codes, effective_region, should_skip_all)
 
 
+def _send_market_closed_notification(config: Config) -> None:
+    """当所有相关市场休市时，发送简短休市通知到已配置的通知渠道。"""
+    try:
+        from src.notification import get_notification_service
+        service = get_notification_service()
+        if not service.is_available():
+            logger.info("通知服务不可用，跳过休市通知")
+            return
+        service.send(
+            "📊 每日股票分析\n\n"
+            "今日相关市场均休市，已跳过分析。\n"
+            "可使用 --force-run 强制执行。",
+            email_send_to_all=True,
+            route_type="report",
+        )
+        logger.info("休市通知已发送")
+    except Exception as e:
+        logger.warning("发送休市通知失败: %s", e)
+
+
 def _run_market_review_with_shared_lock(
     config: Config,
     run_market_review_func: Callable[..., Optional[str]],
@@ -487,6 +507,7 @@ def run_full_analysis(
             logger.info(
                 "今日所有相关市场均为非交易日，跳过执行。可使用 --force-run 强制执行。"
             )
+            _send_market_closed_notification(config)
             return
         if set(filtered_codes) != set(effective_codes):
             skipped = set(effective_codes) - set(filtered_codes)
@@ -959,6 +980,7 @@ def main() -> int:
                 )
                 if effective_region == '':
                     logger.info("今日大盘复盘相关市场均为非交易日，跳过执行。可使用 --force-run 强制执行。")
+                    _send_market_closed_notification(config)
                     return 0
 
             logger.info("模式: 仅大盘复盘")
