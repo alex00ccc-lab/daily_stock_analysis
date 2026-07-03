@@ -11,6 +11,10 @@ and this project adheres to [Semantic Versioning](https://semver.org/).
 
 <!-- 新条目格式：- [类型] 描述（类型取值：新功能/改进/修复/文档/测试/chore）-->
 <!-- 每条独立一行追加到本段末尾，无需分类标题，合并时冲突最小 -->
+- [修复] `get_open_markets_today()` 假日误判：改用 `get_effective_trading_date()` 替代 `datetime.now(tz).date()`，假日凌晨自动回溯到最近交易日，修复 A 股/港股/美股假日丢失报告问题。
+- [修复] `US_STOCK_LIST` Variable/Secret 优先级冲突：Workflow 取值链改为 Secret 优先，消除旧 Variable 覆盖新 Secret 导致的列表不更新问题。
+- [新功能] 休市通知：当所有相关市场休市时，通过已配置通知渠道推送简短休市提示。
+- [文档] 新增 `docs/CHANGELOG-2026-07-03.md` 迭代日志，记录本次修复的诊断过程、代码改动、验证结果和回滚方案。
 - [新功能] 美股深度估值分析模块 (`us_fundamental.py`)：PE(TTM/Forward)、PS、PB、PEG、EPS、FCF Yield、ROE、营收/盈利增长率，估值评级与FCF健康度评估。
 - [新功能] 美股宏观分析模块 (`us_macro.py`)：S&P 500/NASDAQ/Dow/VIX 指数行情、国债收益率曲线、美联储政策推断、市场情绪评估。
 - [文档] .env.example 新增 `US_STOCK_LIST` 和 `US_MARKET_ENABLED` 配置项。
