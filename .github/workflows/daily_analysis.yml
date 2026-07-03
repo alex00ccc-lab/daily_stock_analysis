@@ -346,8 +346,9 @@ jobs:
           # 自选股配置
           # ==========================================
           STOCK_LIST: ${{ vars.STOCK_LIST || secrets.STOCK_LIST || '600519' }}
-          us_stock_list: ${{ vars.us_stock_list || secrets.us_stock_list || vars.US_STOCK_LIST || secrets.US_STOCK_LIST || secrets.US_MARKET_LIST || '' }}
-          # 美股由 daily_analysis_us.yml 在 北京时间 09:00 (UTC 01:00) 独立处理
+          # 美股列表由 daily_analysis_us.yml 在 北京时间 09:00 (UTC 01:00) 独立处理
+          # 优先级: Secret > Variable（与美股 workflow 保持一致）
+          us_stock_list: ${{ secrets.US_STOCK_LIST || vars.US_STOCK_LIST || secrets.us_stock_list || vars.us_stock_list || secrets.US_MARKET_LIST || '' }}
           US_MARKET_ENABLED: 'false'
           MARKET_REVIEW_REGION: ${{ vars.MARKET_REVIEW_REGION || secrets.MARKET_REVIEW_REGION || 'cn' }}
           MARKET_REVIEW_COLOR_SCHEME: ${{ vars.MARKET_REVIEW_COLOR_SCHEME || secrets.MARKET_REVIEW_COLOR_SCHEME || 'green_up' }}
