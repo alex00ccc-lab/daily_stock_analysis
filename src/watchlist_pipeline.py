@@ -189,8 +189,8 @@ def _build_weekly_md(weekly: list[dict], macro_items: list[dict], news_items: li
 
     # ── ② 公司基本面研究 ──
     lines.append("### ② 公司基本面研究")
-    lines.append("⚠️ 估值灯（PE/财报）数据源断供（fetch-weekly 自 2026-07-25 起写 0 文件），"
-                "本周「好公司 + 估值合理」判断暂缺，仅技术面/位置面。此为独立排查项。")
+    lines.append("⚠️ 估值灯（PE/财报）本周暂缺——基本面数据源已修复（finnhub 兜底，2026-08-21），"
+                "周报接入 PE 读取为后续项。当前仅技术面/位置面。")
     lines.append("")
 
     # ── ③ 宏观指标及影响 ──
@@ -257,6 +257,34 @@ def _build_weekly_md(weekly: list[dict], macro_items: list[dict], news_items: li
     return "\n".join(lines)
 
 
+def _write_obsidian(md: str, obsidian_dir: str) -> Optional[str]:
+    """把完整四段周报写进 Obsidian 报告目录，返回写盘路径。
+
+    路径：``<obsidian_dir>/自选股/{iso_year}-W{iso_week:02d}-自选股周报.md``（ISO 周，
+    对齐 holdings ``周报/2026-W34-复盘周报.md`` 命名）。带 frontmatter（tags/type/date）。
+    写盘失败只告警不阻断（微信短摘要照发）。
+    """
+    try:
+        now = datetime.now(timezone(timedelta(hours=8)))
+        iso_year, iso_week, _ = now.date().isocalendar()
+        rel_dir = os.path.join(obsidian_dir, "自选股")
+        os.makedirs(rel_dir, exist_ok=True)
+        path = os.path.join(rel_dir, f"{iso_year}-W{iso_week:02d}-自选股周报.md")
+        frontmatter = (
+            "---\n"
+            "tags: [自选股]\n"
+            "type: weekly\n"
+            f"date: {now.strftime('%Y-%m-%d')}\n"
+            "---\n\n"
+        )
+        with open(path, "w", encoding="utf-8") as f:
+            f.write(frontmatter + md)
+        return path
+    except Exception as e:  # noqa: BLE001 — 写盘失败降级，不阻断通知
+        logger.warning("Obsidian 写盘失败: %s", e)
+        return None
+
+
 def run_weekly(args) -> int:
     symbols = fetch_watchlist_symbols()
     if not symbols:
@@ -287,6 +315,10 @@ def run_weekly(args) -> int:
 
     md = _build_weekly_md(weekly, macro_items, news_items, prose)
     send_wecom_markdown(md, dry_run=args.dry_run)
+    if getattr(args, "obsidian_dir", None):
+        path = _write_obsidian(md, args.obsidian_dir)
+        if path:
+            logger.info("Obsidian weekly written: %s", path)
     return 0
 
 
@@ -296,6 +328,8 @@ def main(argv: Optional[list[str]] = None) -> int:
     parser.add_argument("--notify", action="store_true", help="已默认开启，此参数保留兼容")
     parser.add_argument("--dry-run", action="store_true", help="只打印不发送")
     parser.add_argument("--force", action="store_true", help="忽略北京高峰时段 guard（仅 weekly 的 LLM 调用）")
+    parser.add_argument("--obsidian-dir", default=None,
+                        help="若传入，把完整周报写盘到 <dir>/自选股/（Obsidian 报告仓库 checkout 路径）")
     args = parser.parse_args(argv)
 
     try:

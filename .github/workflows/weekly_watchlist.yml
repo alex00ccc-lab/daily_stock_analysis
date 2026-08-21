@@ -4,6 +4,8 @@ name: 每周自选股复核（LLM 文字）
 # 通过闸门的标的喂给 LLM 写 thesis/risk/action，数字全部由 Python 下游附加。
 #
 # 周六 19:00 BJT (UTC 11:00) —— 闲时；guard 兜底（高峰则跳过 LLM，只发数字摘要）。
+# 双轨：企业微信短摘要（始终发） + Obsidian 完整版（push 到私有 holdings-briefing-reports 自选股/，
+# 依赖 REPORTS_REPO_TOKEN，缺失则优雅降级只发微信）。
 
 on:
   schedule:
@@ -17,7 +19,7 @@ concurrency:
 jobs:
   review:
     runs-on: ubuntu-latest
-    timeout-minutes: 15
+    timeout-minutes: 20
 
     steps:
       - name: 检出代码
@@ -34,7 +36,15 @@ jobs:
           pip install --upgrade pip
           pip install -r requirements.txt
 
-      - name: 执行自选股周度复核（LLM 文字 · 受 peak guard 约束）
+      - name: 检出报告仓库（holdings-briefing-reports，私有；缺 token 则降级只发微信）
+        continue-on-error: true
+        uses: actions/checkout@v4
+        with:
+          repository: alex00ccc-lab/holdings-briefing-reports
+          token: ${{ secrets.REPORTS_REPO_TOKEN }}
+          path: staging/Reports
+
+      - name: 执行自选股周度复核（微信短摘要 + Obsidian 完整版 · 受 peak guard 约束）
         env:
           WECHAT_WEBHOOK_URL: ${{ secrets.WECHAT_WEBHOOK_URL }}
           DEEPSEEK_API_KEY: ${{ secrets.DEEPSEEK_API_KEY }}
@@ -47,4 +57,38 @@ jobs:
           ANSPIRE_API_KEYS: ${{ secrets.ANSPIRE_API_KEYS }}
         run: |
           echo "⏰ $(TZ='Asia/Shanghai' date '+%Y-%m-%d %H:%M:%S') BJT"
-          python -m src.watchlist_pipeline --tier weekly --notify
+          python -m src.watchlist_pipeline --tier weekly --notify --obsidian-dir staging/Reports
+
+      - name: 脱敏校验（命中精确金额/绝密字段则不 push）
+        run: |
+          if [ ! -d staging/Reports/.git ]; then
+            echo "⚠️ 报告仓库未检出（缺 REPORTS_REPO_TOKEN），跳过 Obsidian 同步"
+            exit 0
+          fi
+          # 对齐 holdings security_gate.py 核心模式：¥/$ 后 ≥4 位数字 + 绝密字段。
+          # 周报内容已被 P0 _sanitize 剥数字，此步为 belt-and-suspenders 机械兜底。
+          if grep -rEn '[¥$][[:space:]]*[0-9,]{4,}|身份证|银行账号|银行卡|密码|真实姓名' staging/Reports/自选股/; then
+            echo "❌ 自选股周报含精确金额/绝密字段，阻断 push"
+            exit 1
+          fi
+          echo "✅ 脱敏校验通过"
+
+      - name: 提交并推送报告
+        run: |
+          if [ ! -d staging/Reports/.git ]; then
+            echo "⚠️ 报告仓库未检出，跳过 push"
+            exit 0
+          fi
+          cd staging/Reports
+          git config user.name "github-actions[bot]"
+          git config user.email "github-actions[bot]@users.noreply.github.com"
+          # 确保在 main 分支并吸收并发 holdings push（防 non-fast-forward）
+          git checkout -B main origin/main 2>/dev/null || git checkout main
+          git pull --rebase origin main || echo "⚠️ rebase 跳过（无远端/已最新）"
+          git add -A
+          if git diff --staged --quiet; then
+            echo "No changes to push"
+          else
+            git commit -m "weekly: 自选股周报 $(date +%F)"
+            git push origin main || (git pull --rebase origin main && git push origin main)
+          fi
