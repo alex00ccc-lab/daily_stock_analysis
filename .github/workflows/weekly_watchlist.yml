@@ -1,0 +1,50 @@
+name: 每周自选股复核（LLM 文字）
+
+# 自选股周更化 · 周末层：唯一一次 DeepSeek 调用，只写定性文字、零数字（P0）。
+# 通过闸门的标的喂给 LLM 写 thesis/risk/action，数字全部由 Python 下游附加。
+#
+# 周六 19:00 BJT (UTC 11:00) —— 闲时；guard 兜底（高峰则跳过 LLM，只发数字摘要）。
+
+on:
+  schedule:
+    - cron: '0 11 * * 6'     # 周六，UTC 11:00 = 北京时间 19:00（闲时）
+  workflow_dispatch:
+
+concurrency:
+  group: watchlist-weekly
+  cancel-in-progress: false
+
+jobs:
+  review:
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+
+    steps:
+      - name: 检出代码
+        uses: actions/checkout@v4
+
+      - name: 设置 Python 环境
+        uses: actions/setup-python@v5
+        with:
+          python-version: '3.11'
+          cache: 'pip'
+
+      - name: 安装依赖
+        run: |
+          pip install --upgrade pip
+          pip install -r requirements.txt
+
+      - name: 执行自选股周度复核（LLM 文字 · 受 peak guard 约束）
+        env:
+          WECHAT_WEBHOOK_URL: ${{ secrets.WECHAT_WEBHOOK_URL }}
+          DEEPSEEK_API_KEY: ${{ secrets.DEEPSEEK_API_KEY }}
+          # 新闻搜索 key（逗号分隔多 key；缺失则新闻段优雅降级，周报照出）
+          BOCHA_API_KEYS: ${{ secrets.BOCHA_API_KEYS }}
+          TAVILY_API_KEYS: ${{ secrets.TAVILY_API_KEYS }}
+          SERPAPI_API_KEYS: ${{ secrets.SERPAPI_API_KEYS }}
+          BRAVE_API_KEYS: ${{ secrets.BRAVE_API_KEYS }}
+          MINIMAX_API_KEYS: ${{ secrets.MINIMAX_API_KEYS }}
+          ANSPIRE_API_KEYS: ${{ secrets.ANSPIRE_API_KEYS }}
+        run: |
+          echo "⏰ $(TZ='Asia/Shanghai' date '+%Y-%m-%d %H:%M:%S') BJT"
+          python -m src.watchlist_pipeline --tier weekly --notify

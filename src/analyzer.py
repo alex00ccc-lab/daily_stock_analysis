@@ -253,6 +253,25 @@ def _is_value_placeholder(v: Any) -> bool:
     return s in ("", "n/a", "na", "数据缺失", "未知", "data unavailable", "unknown", "tbd")
 
 
+def _is_real_value(v: Any) -> bool:
+    """True if value 是「可落地的真实计算值」（区别于占位符/缺失）。
+
+    与 ``_is_value_placeholder`` 的关键差异：数值 0 是**真实值**（bias_ma5=0、
+    bias_status=0 都是合法计算产物），不是占位符。P0 修复据此无条件用 Python
+    计算值覆盖 LLM 可能编造的像样数字，仅在 Python 值真缺失时保留占位符。
+    """
+    if v is None:
+        return False
+    if isinstance(v, bool):
+        return True
+    if isinstance(v, (int, float)):
+        return True
+    s = str(v).strip()
+    if not s:
+        return False
+    return s.lower() not in ("n/a", "na", "数据缺失", "未知", "data unavailable", "unknown", "tbd")
+
+
 _RISK_WARNING_PLACEHOLDER_TEXTS = {
     "",
     "n/a",
@@ -667,12 +686,15 @@ def fill_price_position_if_needed(
             rq = realtime_quote if isinstance(realtime_quote, dict) else (
                 realtime_quote.to_dict() if hasattr(realtime_quote, "to_dict") else {}
             )
-            if _is_value_placeholder(computed.get("current_price")):
+            if not _is_real_value(computed.get("current_price")):
                 computed["current_price"] = rq.get("price")
 
+        # P0 修复：无条件用 Python 计算值覆盖 LLM 输出（只要计算值是真实值），
+        # 不再看 LLM 原值是否占位符——LLM 编一个像样的非零数字会原样进报告，
+        # 属于结构性问题。仅在 Python 值真缺失时保留占位符。
         filled = False
         for k in _PRICE_POS_KEYS:
-            if _is_value_placeholder(pp.get(k)) and not _is_value_placeholder(computed.get(k)):
+            if _is_real_value(computed.get(k)):
                 pp[k] = computed[k]
                 filled = True
         if filled:

@@ -69,6 +69,9 @@ Thumbs.db
 .coverage
 htmlcov/
 
+# watchlist 管线缓存（market_data_reader 本地 TTL 缓存，CI 瞬态产物）
+cache/
+
 local/
 
 run.sh

@@ -11,6 +11,12 @@ and this project adheres to [Semantic Versioning](https://semver.org/).
 
 <!-- 新条目格式：- [类型] 描述（类型取值：新功能/改进/修复/文档/测试/chore）-->
 <!-- 每条独立一行追加到本段末尾，无需分类标题，合并时冲突最小 -->
+- [新功能] 自选股周更化管线（绕开 `analyzer.py` 自包含四模块）：`market_data_reader`（读公开仓库 market-data-collector 已算指标 JSON，不重抓 quote）、`watchlist_gates`（纯 Python 闸门：三灯估值/技术/距前高 + B2 追高闸 +8% / B3 AVWAP 破位 1.5×量，0 LLM）、`watchlist_llm`（周末唯一一次 DeepSeek 文字复核，只出定性文字零数字）、`watchlist_pipeline`（`--tier daily` 零 token 通知 / `--tier weekly` LLM 文字）。
+- [新功能] 周报四段决策文件：新增 `watchlist_weekly`（宏观指标周环比 `assemble_macro` + 新闻头条 `fetch_news` 复用 `search_service.SearchService`，无 key 优雅降级）、`watchlist_gates.weekly_metrics`（一周涨跌/周高低/量比/通过闸门天数/止损价，纯 Python）、`watchlist_llm.generate_weekly_prose`（宏观政策+新闻要点+个股复核单次批量 LLM，纯文字零数字）、`market_data_reader.fetch_indicators_history`/`fetch_macro_history`（近 N 交易日历史序列）。周报按「①一周盘面回顾 → ②公司基本面研究 → ③宏观指标及影响 → ④建仓决策文件」输出，买后纪律（仓位 ≤15%/单市场 ≤40%/现金 ≥10%、金字塔 50/30/20、分批止盈、止损价）写死进第④段，作为「系统分析→建仓」最后一道门。数据抓取仍由 market-data-collector 每日 CI 独立完成（DSA 只读这条每天活的管道，不自己抓数据）。
+- [新功能] 工作流重构：`daily_analysis_us.yml` 改为零-token 日层（`python -m src.watchlist_pipeline --tier daily --notify`，删全部 LLM env）；新增 `weekly_watchlist.yml`（周六 `0 11 * * 6` 闲时，仅带 DeepSeek key 跑 `--tier weekly`）。
+- [改进] `daily_analysis.yml`（legacy A股）cron `0 10` → `0 11`（UTC），挪出 DeepSeek 峰谷定价高峰窗（06–10 UTC），落闲时 19:00 BJT。
+- [修复] P0 纪律：`analyzer.py::fill_price_position_if_needed` 改为**无条件用 Python 计算值覆盖**八个 `_PRICE_POS_KEYS`（ma5/10/20、current_price、bias_ma5、bias_status、support_level、resistance_level），不再看 LLM 原值是否占位符——堵住 LLM 编造像样非零数字进报告的洞（新增 `_is_real_value` 判定，数值 0 视为真实值）。仅 Python 值真缺失时保留占位符。
+- [新功能] `src/deepseek_peak_guard.py`：DeepSeek 峰谷定价守护（北京 09:00–12:00 / 14:00–18:00 高峰跳过 LLM，除非 `force=True`），`watchlist_llm` 已接线。
 - [修复] `get_open_markets_today()` 假日误判：改用 `get_effective_trading_date()` 替代 `datetime.now(tz).date()`，假日凌晨自动回溯到最近交易日，修复 A 股/港股/美股假日丢失报告问题。
 - [修复] `US_STOCK_LIST` Variable/Secret 优先级冲突：Workflow 取值链改为 Secret 优先，消除旧 Variable 覆盖新 Secret 导致的列表不更新问题。
 - [新功能] 休市通知：当所有相关市场休市时，通过已配置通知渠道推送简短休市提示。
