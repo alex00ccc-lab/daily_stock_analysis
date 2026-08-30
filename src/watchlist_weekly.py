@@ -30,10 +30,14 @@ _NEWS_KEY_ENVVARS = {
 
 
 def _num(v: Any) -> Optional[float]:
+    if v is None:
+        return None
     try:
-        return float(v) if v is not None else None
+        f = float(v)
     except (TypeError, ValueError):
         return None
+    # NaN（yfinance 周末返回的 NaN-close bar 会一路传播成 "+nan%"）→ None，由上层 if c is not None 过滤
+    return None if f != f else f
 
 
 def assemble_macro(macro_history: list[tuple[str, dict]]) -> list[dict]:
