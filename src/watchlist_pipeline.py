@@ -35,6 +35,7 @@ from src.market_data_reader import (
     fetch_all_indicators,
     fetch_indicators_history,
     fetch_macro_history,
+    fetch_all_fundamentals,
 )
 from src.watchlist_gates import evaluate_all, passing_symbols, weekly_metrics
 from src.watchlist_weekly import assemble_macro, fetch_news
@@ -171,7 +172,7 @@ def _fmt_pct(v: Optional[float]) -> str:
     return f"{v:+.2f}%" if v is not None else "无数据"
 
 
-def _build_weekly_md(weekly: list[dict], macro_items: list[dict], news_items: list[dict], prose: Optional[dict]) -> str:
+def _build_weekly_md(weekly: list[dict], macro_items: list[dict], news_items: list[dict], prose: Optional[dict], fundamentals: Optional[dict] = None) -> str:
     lines = [f"## 📈 自选股周报（决策文件）", f"**{_bjt_now_str()} BJT** · 数据源: market-data-collector（公开指标）", ""]
 
     # ── ① 一周盘面回顾（Python 算）──
@@ -189,8 +190,33 @@ def _build_weekly_md(weekly: list[dict], macro_items: list[dict], news_items: li
 
     # ── ② 公司基本面研究 ──
     lines.append("### ② 公司基本面研究")
-    lines.append("⚠️ 估值灯（PE/财报）本周暂缺——基本面数据源已修复（finnhub 兜底，2026-08-21），"
-                "周报接入 PE 读取为后续项。当前仅技术面/位置面。")
+    if fundamentals:
+        lines.append("估值灯（PE/PB/股息/市值，finnhub weekly 快照）：")
+        for w in weekly:
+            sym = w["symbol"]
+            f = fundamentals.get(sym)
+            if not f:
+                lines.append(f"- **{sym}**：基本面待回填（新加入自选股，下一轮 weekly 抓取后覆盖）")
+                continue
+            parts = []
+            pe = f.get("pe_ratio")
+            pb = f.get("pb_ratio")
+            dy = f.get("dividend_yield")
+            cap = f.get("market_cap")
+            ind = f.get("industry") or ""
+            if isinstance(pe, (int, float)):
+                parts.append(f"PE {pe:.1f}")
+            if isinstance(pb, (int, float)):
+                parts.append(f"PB {pb:.1f}")
+            if isinstance(dy, (int, float)):
+                parts.append(f"股息 {dy * 100:.2f}%")
+            if cap:
+                parts.append(f"市值 {cap}")
+            if ind:
+                parts.append(f"行业 {ind}")
+            lines.append(f"- **{sym}**：" + " · ".join(parts) if parts else f"- **{sym}**：无估值字段")
+    else:
+        lines.append("⚠️ 本周基本面数据缺失（fetch-weekly 尚未产出或全部抓取失败）。")
     lines.append("")
 
     # ── ③ 宏观指标及影响 ──
@@ -305,6 +331,11 @@ def run_weekly(args) -> int:
     macro_items = assemble_macro(fetch_macro_history(days=8))
     logger.info("weekly: %d macro items", len(macro_items))
 
+    # ②b 基本面（估值灯：PE/PB/股息/市值，weekly 快照，纯 Python）
+    fundamentals = fetch_all_fundamentals(symbols)
+    logger.info("weekly: %d/%d symbols have fundamentals",
+                sum(1 for v in fundamentals.values() if v), len(symbols))
+
     # ③ 新闻头条（Python 抓，无 key 降级）
     news_items = fetch_news(days=7)
     logger.info("weekly: %d news headlines", len(news_items))
@@ -313,7 +344,7 @@ def run_weekly(args) -> int:
     passing = [w["latest"] for w in weekly if w["latest"].get("passed")]
     prose = generate_weekly_prose(passing, macro_items=macro_items, news_items=news_items, force=args.force)
 
-    md = _build_weekly_md(weekly, macro_items, news_items, prose)
+    md = _build_weekly_md(weekly, macro_items, news_items, prose, fundamentals=fundamentals)
     send_wecom_markdown(md, dry_run=args.dry_run)
     if getattr(args, "obsidian_dir", None):
         path = _write_obsidian(md, args.obsidian_dir)

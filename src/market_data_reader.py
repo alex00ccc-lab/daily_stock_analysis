@@ -142,6 +142,30 @@ def fetch_all_indicators(symbols: list[str], branch: Optional[str] = None, days_
     return {s: fetch_indicators(s, branch=branch, days_back=days_back) for s in symbols}
 
 
+# ── 基本面（估值灯：PE/PB/股息/市值）────────────────────────────────────────
+def fetch_fundamentals(symbol: str, branch: Optional[str] = None, days_back: int = 10) -> Optional[dict]:
+    """读该标的「最新日期」的 fundamentals JSON（pe_ratio/pb_ratio/dividend_yield/market_cap），找不到返回 None。
+
+    基本面是 weekly 抓取（每周六 08:00 BJT 由 fetch-weekly 写 ``data/{date}/fundamentals/``），
+    与指标不同——只有每周一个快照。故用日期回退（同 indicators）定位最近一次命中；
+    新加入自选股的标的在下一轮 weekly 抓取覆盖前会返回 None（调用方优雅降级为「待回填」）。
+    """
+    branch = branch or _DEFAULT_BRANCH
+    sym = symbol.upper()  # 文件名与 watchlist symbol 一致
+    for date_s in _candidate_dates(days_back):
+        url = f"{_RAW_BASE}{branch}/data/{date_s}/fundamentals/{sym}.json"
+        data = _fetch_json(url)
+        if data is not None:
+            return data
+    logger.info("no fundamentals found for %s within %d days", symbol, days_back)
+    return None
+
+
+def fetch_all_fundamentals(symbols: list[str], branch: Optional[str] = None, days_back: int = 10) -> dict[str, Optional[dict]]:
+    """批量读基本面：{symbol: fundamentals dict | None}。None 表示最近无快照。"""
+    return {s: fetch_fundamentals(s, branch=branch, days_back=days_back) for s in symbols}
+
+
 # ── 周度历史序列 ────────────────────────────────────────────────────────────
 def fetch_indicators_history(symbol: str, branch: Optional[str] = None, days: int = 8) -> list[tuple[str, dict]]:
     """读该标的近 ``days`` 个自然日里**所有命中日期**的指标序列。
