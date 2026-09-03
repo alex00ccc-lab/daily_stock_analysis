@@ -41,6 +41,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/).
 - [新功能] 新增热点题材、事件驱动、成长质量和预期重估策略。
 - [新功能] Web 新增告警中心 MVP，支持现有三类告警规则的创建、列表、启停、删除、dry-run 测试和触发历史查看。
 - [新功能] 告警中心 P4 记录真实通知尝试结果，并为持久化规则新增可查询的业务冷却状态。
+- [新功能] 自选股周报新增「②b 期权墙」段：`market_data_reader.py` 加 `fetch_options`/`fetch_all_options`（读公开仓库 market-data-collector 每周六产出的 `data/{date}/options/{SYM}.json`，日期回退定位最近快照），`watchlist_pipeline.py` 周报②基本面后插入②b（max pain / call wall / put wall / ATM IV / IV-HV 磁吸+隐含波动率），新标的或抓取失败优雅降级「待回填」，纯 Python 零 LLM。
 
 ## [3.17.1] - 2026-05-16
 

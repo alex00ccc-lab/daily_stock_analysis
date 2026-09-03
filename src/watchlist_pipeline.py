@@ -36,6 +36,7 @@ from src.market_data_reader import (
     fetch_indicators_history,
     fetch_macro_history,
     fetch_all_fundamentals,
+    fetch_all_options,
 )
 from src.watchlist_gates import evaluate_all, passing_symbols, weekly_metrics
 from src.watchlist_weekly import assemble_macro, fetch_news
@@ -172,7 +173,7 @@ def _fmt_pct(v: Optional[float]) -> str:
     return f"{v:+.2f}%" if v is not None else "无数据"
 
 
-def _build_weekly_md(weekly: list[dict], macro_items: list[dict], news_items: list[dict], prose: Optional[dict], fundamentals: Optional[dict] = None) -> str:
+def _build_weekly_md(weekly: list[dict], macro_items: list[dict], news_items: list[dict], prose: Optional[dict], fundamentals: Optional[dict] = None, options: Optional[dict] = None) -> str:
     lines = [f"## 📈 自选股周报（决策文件）", f"**{_bjt_now_str()} BJT** · 数据源: market-data-collector（公开指标）", ""]
 
     # ── ① 一周盘面回顾（Python 算）──
@@ -217,6 +218,36 @@ def _build_weekly_md(weekly: list[dict], macro_items: list[dict], news_items: li
             lines.append(f"- **{sym}**：" + " · ".join(parts) if parts else f"- **{sym}**：无估值字段")
     else:
         lines.append("⚠️ 本周基本面数据缺失（fetch-weekly 尚未产出或全部抓取失败）。")
+    lines.append("")
+
+    # ── ②b 期权墙（max pain / call wall / put wall / ATM IV / IV-HV）──
+    lines.append("### ②b 期权墙（机构持仓磁吸 + 隐含波动率）")
+    if options:
+        for w in weekly:
+            sym = w["symbol"]
+            o = options.get(sym)
+            if not o:
+                lines.append(f"- **{sym}**：期权墙待回填（新加入自选股，下一轮 weekly 抓取后覆盖）")
+                continue
+            parts = []
+            mp = o.get("max_pain")
+            cw = o.get("call_wall")
+            pw = o.get("put_wall")
+            iv = o.get("atm_iv")
+            gap = o.get("iv_hv_gap")
+            if mp is not None:
+                parts.append(f"max pain {mp}")
+            if cw is not None:
+                parts.append(f"call wall {cw}")
+            if pw is not None:
+                parts.append(f"put wall {pw}")
+            if isinstance(iv, (int, float)):
+                parts.append(f"ATM IV {iv * 100:.1f}%")
+            if isinstance(gap, (int, float)):
+                parts.append(f"IV-HV {gap * 100:+.1f}%")
+            lines.append(f"- **{sym}**：" + " · ".join(parts) if parts else f"- **{sym}**：无期权墙字段")
+    else:
+        lines.append("⚠️ 本周期权墙数据缺失（fetch-weekly 尚未产出或全部抓取失败）。")
     lines.append("")
 
     # ── ③ 宏观指标及影响 ──
@@ -336,6 +367,11 @@ def run_weekly(args) -> int:
     logger.info("weekly: %d/%d symbols have fundamentals",
                 sum(1 for v in fundamentals.values() if v), len(symbols))
 
+    # ②b 期权墙（max pain / call wall / put wall / ATM IV / IV-HV，weekly 快照，纯 Python）
+    options = fetch_all_options(symbols)
+    logger.info("weekly: %d/%d symbols have options",
+                sum(1 for v in options.values() if v), len(symbols))
+
     # ③ 新闻头条（Python 抓，无 key 降级）
     news_items = fetch_news(days=7)
     logger.info("weekly: %d news headlines", len(news_items))
@@ -344,7 +380,7 @@ def run_weekly(args) -> int:
     passing = [w["latest"] for w in weekly if w["latest"].get("passed")]
     prose = generate_weekly_prose(passing, macro_items=macro_items, news_items=news_items, force=args.force)
 
-    md = _build_weekly_md(weekly, macro_items, news_items, prose, fundamentals=fundamentals)
+    md = _build_weekly_md(weekly, macro_items, news_items, prose, fundamentals=fundamentals, options=options)
     send_wecom_markdown(md, dry_run=args.dry_run)
     if getattr(args, "obsidian_dir", None):
         path = _write_obsidian(md, args.obsidian_dir)

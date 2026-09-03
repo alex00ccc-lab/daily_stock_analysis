@@ -166,6 +166,29 @@ def fetch_all_fundamentals(symbols: list[str], branch: Optional[str] = None, day
     return {s: fetch_fundamentals(s, branch=branch, days_back=days_back) for s in symbols}
 
 
+# ── 期权墙（max pain / call wall / put wall / ATM IV / IV-HV）────────────────
+def fetch_options(symbol: str, branch: Optional[str] = None, days_back: int = 10) -> Optional[dict]:
+    """读该标的「最新日期」的 options JSON（max_pain/call_wall/put_wall/atm_iv/iv_hv_gap），找不到返回 None。
+
+    期权墙是 weekly 抓取（周六 08:00 BJT 由 fetch-weekly 写 ``data/{date}/options/``），
+    与 fundamentals 同频。用日期回退定位最近一次命中；新标的或抓取失败返回 None（调用方降级「待回填」）。
+    """
+    branch = branch or _DEFAULT_BRANCH
+    sym = symbol.upper()
+    for date_s in _candidate_dates(days_back):
+        url = f"{_RAW_BASE}{branch}/data/{date_s}/options/{sym}.json"
+        data = _fetch_json(url)
+        if data is not None:
+            return data
+    logger.info("no options found for %s within %d days", symbol, days_back)
+    return None
+
+
+def fetch_all_options(symbols: list[str], branch: Optional[str] = None, days_back: int = 10) -> dict[str, Optional[dict]]:
+    """批量读期权墙：{symbol: options dict | None}。None 表示最近无快照。"""
+    return {s: fetch_options(s, branch=branch, days_back=days_back) for s in symbols}
+
+
 # ── 周度历史序列 ────────────────────────────────────────────────────────────
 def fetch_indicators_history(symbol: str, branch: Optional[str] = None, days: int = 8) -> list[tuple[str, dict]]:
     """读该标的近 ``days`` 个自然日里**所有命中日期**的指标序列。
