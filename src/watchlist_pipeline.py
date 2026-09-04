@@ -107,6 +107,38 @@ def send_wecom_markdown(content: str, dry_run: bool = False) -> bool:
     return ok
 
 
+def _dingtalk_webhooks() -> list[str]:
+    """从 CUSTOM_WEBHOOK_URLS（逗号分隔）提取钉钉群机器人 webhook（oapi.dingtalk.com）。"""
+    raw = os.getenv("CUSTOM_WEBHOOK_URLS", "")
+    urls = [u.strip() for u in raw.split(",") if u.strip()]
+    return [u for u in urls if "dingtalk" in u.lower() or "oapi.dingtalk.com" in u.lower()]
+
+
+def send_dingtalk_markdown(content: str, dry_run: bool = False) -> bool:
+    """发送钉钉群机器人 markdown（20KB 分批）；缺 webhook 或 dry-run 时静默降级（不重复打印）。"""
+    webhooks = _dingtalk_webhooks()
+    if dry_run:
+        logger.info("[dry-run] 钉钉未发送（检测到 %d 个钉钉 webhook）", len(webhooks))
+        return False
+    if not webhooks:
+        logger.info("CUSTOM_WEBHOOK_URLS 无钉钉 webhook，跳过钉钉推送")
+        return False
+    import requests
+    ok = True
+    for webhook in webhooks:
+        for chunk in _chunk_markdown(content, max_bytes=20000):
+            payload = {"msgtype": "markdown", "markdown": {"title": "自选股周报", "text": chunk}}
+            try:
+                r = requests.post(webhook, json=payload, timeout=20)
+                if r.status_code != 200 or r.json().get("errcode", 0) != 0:
+                    logger.warning("dingtalk send failed: %s %s", r.status_code, r.text[:200])
+                    ok = False
+            except Exception as e:  # noqa: BLE001
+                logger.warning("dingtalk send exception: %s", e)
+                ok = False
+    return ok
+
+
 def _symbol_line(r: dict) -> str:
     close = r.get("close")
     ma20 = r.get("ma20")
@@ -408,6 +440,7 @@ def run_weekly(args) -> int:
 
     md = _build_weekly_md(weekly, macro_items, news_items, prose, fundamentals=fundamentals, options=options, macro_regime=macro_regime)
     send_wecom_markdown(md, dry_run=args.dry_run)
+    send_dingtalk_markdown(md, dry_run=args.dry_run)
     if getattr(args, "obsidian_dir", None):
         path = _write_obsidian(md, args.obsidian_dir)
         if path:

@@ -11,6 +11,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/).
 
 <!-- 新条目格式：- [类型] 描述（类型取值：新功能/改进/修复/文档/测试/chore）-->
 <!-- 每条独立一行追加到本段末尾，无需分类标题，合并时冲突最小 -->
+- [新功能] 自选股周报新增钉钉推送：`watchlist_pipeline.py` 加 `send_dingtalk_markdown()` / `_dingtalk_webhooks()`（从 `CUSTOM_WEBHOOK_URLS` 逗号列表提取 oapi.dingtalk.com 群机器人 webhook，20KB 分批 markdown，缺 webhook 静默降级不重复打印），`run_weekly` 在微信推送后并行推钉钉；`weekly_watchlist.yml` env 加 `CUSTOM_WEBHOOK_URLS`（复用现有 GitHub secret，无新 key）。
 - [新功能] 周报③宏观段接入 regime：`market_data_reader.py` 加 `fetch_macro_regime()`（读公开仓库 `data/{date}/macro_regime.json`，日期回退取最新快照，找不到返回 None），`watchlist_pipeline.py` 周报③宏观指标后插入「宏观 regime」行（regime 灯 + 杠杆/流动性/预期三力灯 + 下一 FOMC/CPI/PPI 倒计时 + 「接下来盯」watch 清单），找不到快照优雅降级静默跳过，纯 Python 零 LLM；依赖 market-data-collector v15.8 新增的 `scripts/macro_regime.py` 产出。
 - [新功能] 自选股周报上云 Obsidian：`watchlist_pipeline.py` 加 `--obsidian-dir`（把完整四段周报写盘 `<dir>/自选股/{iso_year}-W{iso_week:02d}-自选股周报.md`，带 frontmatter）；`weekly_watchlist.yml` 加「检出私有 holdings-briefing-reports → 脱敏 grep → commit+push」步骤，复用 `REPORTS_REPO_TOKEN`，缺 token 优雅降级只发微信。
 - [新功能] 自选股周更化管线（绕开 `analyzer.py` 自包含四模块）：`market_data_reader`（读公开仓库 market-data-collector 已算指标 JSON，不重抓 quote）、`watchlist_gates`（纯 Python 闸门：三灯估值/技术/距前高 + B2 追高闸 +8% / B3 AVWAP 破位 1.5×量，0 LLM）、`watchlist_llm`（周末唯一一次 DeepSeek 文字复核，只出定性文字零数字）、`watchlist_pipeline`（`--tier daily` 零 token 通知 / `--tier weekly` LLM 文字）。

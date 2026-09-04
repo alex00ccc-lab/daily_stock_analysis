@@ -47,6 +47,7 @@ jobs:
       - name: 执行自选股周度复核（微信短摘要 + Obsidian 完整版 · 受 peak guard 约束）
         env:
           WECHAT_WEBHOOK_URL: ${{ secrets.WECHAT_WEBHOOK_URL }}
+          CUSTOM_WEBHOOK_URLS: ${{ secrets.CUSTOM_WEBHOOK_URLS }}
           DEEPSEEK_API_KEY: ${{ secrets.DEEPSEEK_API_KEY }}
           # 新闻搜索 key（逗号分隔多 key；缺失则新闻段优雅降级，周报照出）
           BOCHA_API_KEYS: ${{ secrets.BOCHA_API_KEYS }}
