@@ -222,3 +222,19 @@ def fetch_macro_history(branch: Optional[str] = None, days: int = 8) -> list[tup
         if data is not None:
             out.append((date_s, data))
     return out
+
+
+def fetch_macro_regime(branch: Optional[str] = None, days_back: int = 8) -> Optional[dict]:
+    """读最近一次命中的 ``macro_regime.json``（杠杆/流动性/预期 regime 数据层）。
+
+    与 fetch_macro_history 同源，但只取最新一个快照（regime 是「当前状态」慢信号，非历史序列）。
+    返回 dict（regime/regime_light + forces.*.light/watch + events.next）；找不到返回 None（调用方降级）。
+    """
+    branch = branch or _DEFAULT_BRANCH
+    for date_s in _candidate_dates(days_back):
+        url = f"{_RAW_BASE}{branch}/data/{date_s}/macro_regime.json"
+        data = _fetch_json(url)
+        if data is not None:
+            return data
+    logger.info("no macro_regime found within %d days", days_back)
+    return None

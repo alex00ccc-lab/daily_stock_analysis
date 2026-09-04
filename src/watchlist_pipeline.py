@@ -35,6 +35,7 @@ from src.market_data_reader import (
     fetch_all_indicators,
     fetch_indicators_history,
     fetch_macro_history,
+    fetch_macro_regime,
     fetch_all_fundamentals,
     fetch_all_options,
 )
@@ -173,7 +174,7 @@ def _fmt_pct(v: Optional[float]) -> str:
     return f"{v:+.2f}%" if v is not None else "无数据"
 
 
-def _build_weekly_md(weekly: list[dict], macro_items: list[dict], news_items: list[dict], prose: Optional[dict], fundamentals: Optional[dict] = None, options: Optional[dict] = None) -> str:
+def _build_weekly_md(weekly: list[dict], macro_items: list[dict], news_items: list[dict], prose: Optional[dict], fundamentals: Optional[dict] = None, options: Optional[dict] = None, macro_regime: Optional[dict] = None) -> str:
     lines = [f"## 📈 自选股周报（决策文件）", f"**{_bjt_now_str()} BJT** · 数据源: market-data-collector（公开指标）", ""]
 
     # ── ① 一周盘面回顾（Python 算）──
@@ -263,6 +264,27 @@ def _build_weekly_md(weekly: list[dict], macro_items: list[dict], news_items: li
                 lines.append(f"- {m.get('name')}（{m.get('symbol')}）：周环比 {chg}")
     else:
         lines.append("⚠️ 本周无宏观数据。")
+    if macro_regime:
+        rl = macro_regime.get("regime_light", "")
+        label = macro_regime.get("regime_label", macro_regime.get("regime", ""))
+        forces = macro_regime.get("forces", {}) or {}
+        parts = []
+        for key, zh in (("leverage", "杠杆"), ("liquidity", "流动性"), ("expectations", "预期")):
+            f = forces.get(key, {}) or {}
+            parts.append(f"{zh}{f.get('light', '—')}")
+        head = f"- **宏观 regime** {rl} {label} · " + " · ".join(parts)
+        ev = macro_regime.get("events", {}).get("next") or {}
+        if ev.get("type"):
+            days = ev.get("days")
+            head += f" · 下一事件 {ev['type']} {ev.get('date', '')}" + (f"（{days} 天后）" if isinstance(days, int) else "")
+        lines.append(head)
+        watches = []
+        for f in forces.values():
+            for m in (f.get("metrics") or {}).values():
+                if m.get("watch") and m.get("light") in ("🔴", "🟡", "🟠"):
+                    watches.append(m["watch"])
+        if watches:
+            lines.append("  - 接下来盯：" + "；".join(watches[:4]) + ("…" if len(watches) > 4 else ""))
     if news_items:
         lines.append("")
         lines.append("**本周新闻头条**（Python 抓取）：")
@@ -362,6 +384,10 @@ def run_weekly(args) -> int:
     macro_items = assemble_macro(fetch_macro_history(days=8))
     logger.info("weekly: %d macro items", len(macro_items))
 
+    # ②c 宏观 regime（杠杆/流动性/预期，慢信号，非历史序列）
+    macro_regime = fetch_macro_regime()
+    logger.info("weekly: macro regime = %s", (macro_regime or {}).get("regime"))
+
     # ②b 基本面（估值灯：PE/PB/股息/市值，weekly 快照，纯 Python）
     fundamentals = fetch_all_fundamentals(symbols)
     logger.info("weekly: %d/%d symbols have fundamentals",
@@ -380,7 +406,7 @@ def run_weekly(args) -> int:
     passing = [w["latest"] for w in weekly if w["latest"].get("passed")]
     prose = generate_weekly_prose(passing, macro_items=macro_items, news_items=news_items, force=args.force)
 
-    md = _build_weekly_md(weekly, macro_items, news_items, prose, fundamentals=fundamentals, options=options)
+    md = _build_weekly_md(weekly, macro_items, news_items, prose, fundamentals=fundamentals, options=options, macro_regime=macro_regime)
     send_wecom_markdown(md, dry_run=args.dry_run)
     if getattr(args, "obsidian_dir", None):
         path = _write_obsidian(md, args.obsidian_dir)
